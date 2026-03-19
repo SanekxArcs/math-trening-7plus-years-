@@ -1,0 +1,702 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Math Master Extreme</title>
+    <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bubblegum+Sans&family=Fredoka+One&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        font-family: "Bubblegum Sans", cursive;
+        background:
+          radial-gradient(circle at top left, #ff9a8b, transparent),
+          radial-gradient(circle at bottom right, #ff99ac, transparent), #ff6a88;
+        background-attachment: fixed;
+      }
+      .card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border: 4px solid white;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+      }
+      .btn-option {
+        font-family: "Fredoka One", cursive;
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      }
+      .btn-option:hover:not(:disabled) {
+        transform: translateY(-4px) scale(1.02);
+        box-shadow: 0 15px 30px -5px rgba(0, 0, 0, 0.2);
+      }
+      .btn-option:active:not(:disabled) {
+        transform: translateY(0) scale(0.98);
+      }
+      .correct {
+        background-color: #10b981 !important;
+        border-color: #059669 !important;
+        animation: bounce 0.5s;
+      }
+      .wrong {
+        background-color: #ef4444 !important;
+        border-color: #b91c1c !important;
+        animation: shake 0.5s;
+      }
+      .hidden-option {
+        opacity: 0.1;
+        transform: scale(0.9);
+        pointer-events: none;
+      }
+      @keyframes bounce {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-15px);
+        }
+      }
+      @keyframes shake {
+        0%,
+        100% {
+          transform: translateX(0);
+        }
+        25% {
+          transform: translateX(-8px);
+        }
+        75% {
+          transform: translateX(8px);
+        }
+      }
+      .score-badge {
+        font-family: "Fredoka One", cursive;
+      }
+      .goal-bar-good {
+        background: linear-gradient(90deg, #34d399, #10b981);
+        transition: width 0.8s cubic-bezier(0.65, 0, 0.35, 1);
+      }
+      .goal-bar-bad {
+        background: linear-gradient(270deg, #f87171, #ef4444);
+        transition: width 0.8s cubic-bezier(0.65, 0, 0.35, 1);
+      }
+      .hint-box {
+        width: 18px;
+        height: 18px;
+        border-radius: 4px;
+        margin: 2px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .settings-overlay {
+        background: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(8px);
+      }
+      .history-list::-webkit-scrollbar {
+        width: 8px;
+      }
+      .history-list::-webkit-scrollbar-track {
+        background: #f8fafc;
+        border-radius: 10px;
+      }
+      .history-list::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 10px;
+        border: 2px solid #f8fafc;
+      }
+      .history-list::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+      }
+      .history-card {
+        background: white;
+        padding: 12px 16px;
+        border-radius: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border: 2px solid #f1f5f9;
+        transition: transform 0.2s;
+      }
+      .history-card:hover {
+        transform: scale(1.01);
+        border-color: #e2e8f0;
+      }
+
+      /* Global scrollbar for the page and settings */
+      ::-webkit-scrollbar {
+        width: 10px;
+      }
+      ::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.05);
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.4);
+        border-radius: 10px;
+        border: 2px solid transparent;
+        background-clip: content-box;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.7);
+      }
+    </style>
+  </head>
+  <body
+    class="min-h-screen flex items-center justify-center p-2 sm:p-4 overflow-x-hidden selection:bg-pink-300"
+  >
+    <!-- Hints Side Panel (PC) -->
+    <div
+      id="hint-side-panel"
+      class="hidden xl:flex fixed left-8 top-1/2 -translate-y-1/2 flex-col items-center gap-4 transition-all duration-500 opacity-0 -translate-x-10 pointer-events-none"
+    >
+      <div
+        id="hint-container-pc"
+        class="flex flex-wrap flex-col gap-3 p-8 bg-white/90 backdrop-blur-md rounded-[40px] border-4 border-white shadow-2xl items-center justify-center transition-all duration-500"
+      ></div>
+      <!-- Manual Hint Change Button -->
+      <button
+        id="change-hint-btn"
+        onclick="renderHint()"
+        class="mt-4 bg-white/80 hover:bg-white text-slate-600 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg border border-white hover:scale-105 transition-all flex items-center gap-2"
+      >
+        <span>Change View 🔄</span>
+      </button>
+    </div>
+
+    <!-- UI Layout -->
+    <div
+      class="w-full max-w-2xl card rounded-[40px] p-6 sm:p-10 relative overflow-hidden"
+    >
+      <div class="text-center hidden mb-8">
+        <h1
+          id="game-title"
+          class="text-4xl sm:text-5xl font-black text-slate-800 uppercase tracking-tighter drop-shadow-sm"
+        >
+          Mistrz Matematyki! 🚀
+        </h1>
+      </div>
+      <!-- Header with Stats & Goal -->
+      <div class="flex flex-col gap-6 mb-8">
+        <div
+          class="flex justify-between items-center bg-slate-50/80 p-3 rounded-3xl border border-white shadow-sm"
+        >
+          <button
+            id="btn-settings"
+            onclick="openSettings()"
+            class="p-3 bg-white hover:bg-slate-50 text-slate-700 rounded-2xl transition-all hover:rotate-90 flex items-center justify-center shadow-sm border border-slate-100"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="w-6 h-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+              />
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+              />
+            </svg>
+          </button>
+
+          <div class="flex gap-4">
+            <div
+              class="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl shadow-sm border border-emerald-50"
+            >
+              <span
+                id="correct-score"
+                class="score-badge text-2xl text-emerald-600"
+                >0</span
+              >
+              <span
+                class="text-[10px] uppercase font-black text-emerald-400 tracking-wider"
+                >OK</span
+              >
+            </div>
+            <div
+              class="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl shadow-sm border border-rose-50"
+            >
+              <span id="wrong-score" class="score-badge text-2xl text-rose-600"
+                >0</span
+              >
+              <span
+                class="text-[10px] uppercase font-black text-rose-400 tracking-wider"
+                >X</span
+              >
+            </div>
+          </div>
+
+          <button
+            onclick="openHistory()"
+            class="p-3 bg-white hover:bg-slate-50 text-slate-700 rounded-2xl transition-all hover:scale-105 flex items-center justify-center shadow-sm border border-slate-100"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="w-6 h-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Tug of War Progress -->
+        <div
+          id="goal-container"
+          class="relative w-full h-8 bg-slate-100 rounded-2xl overflow-hidden shadow-inner border-4 border-white"
+        >
+          <div class="absolute inset-0 flex">
+            <div
+              id="goal-bar-bad"
+              class="goal-bar-bad h-full"
+              style="width: 0%"
+            ></div>
+            <div
+              class="flex-grow bg-slate-100/50 flex items-center justify-center"
+            >
+              <span
+                id="goal-info-label"
+                class="text-[10px] font-black text-slate-400 uppercase tracking-widest"
+                >Cel</span
+              >
+            </div>
+            <div
+              id="goal-bar-good"
+              class="goal-bar-good h-full"
+              style="width: 0%"
+            ></div>
+          </div>
+          <div
+            class="absolute inset-0 flex justify-center items-center pointer-events-none"
+          >
+            <div class="w-1 h-full bg-white/50 z-20"></div>
+            <span
+              id="goal-progress-text"
+              class="absolute text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] drop-shadow-sm z-30"
+              >VS</span
+            >
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Game Area -->
+      <div id="game-container" class="space-y-8">
+        <div
+          id="timer-container"
+          class="hidden w-full h-3 bg-slate-100 rounded-full overflow-hidden shadow-inner p-0.5 border border-white"
+        >
+          <div
+            id="timer-bar"
+            class="h-full bg-gradient-to-r from-pink-400 to-rose-500 rounded-full transition-all duration-100"
+            style="width: 100%"
+          ></div>
+        </div>
+
+        <div class="text-center relative py-4">
+          <div
+            id="question"
+            class="text-7xl sm:text-[10rem] font-extrabold text-slate-800 leading-none tracking-tighter drop-shadow-sm"
+          >
+            7 × 8
+          </div>
+        </div>
+
+        <div class="flex justify-center">
+          <button
+            id="half-half"
+            onclick="useHalfHalf()"
+            class="group bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold py-3 px-8 rounded-2xl transition-all flex items-center gap-3 shadow-md border-b-4 border-indigo-200 active:border-b-0 active:translate-y-1"
+          >
+            <span class="text-xl">50:50</span>
+            <span
+              class="text-sm bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded-lg group-hover:scale-110 transition-transform"
+              >-2</span
+            >
+          </button>
+        </div>
+
+        <div id="options" class="grid grid-cols-2 gap-4">
+          <button
+            onclick="checkAnswer(0)"
+            class="btn-option bg-white hover:bg-sky-50 text-sky-600 text-4xl p-8 rounded-3xl shadow-lg border-b-8 border-sky-100 first-letter:uppercase"
+          >
+            42
+          </button>
+          <button
+            onclick="checkAnswer(1)"
+            class="btn-option bg-white hover:bg-amber-50 text-amber-600 text-4xl p-8 rounded-3xl shadow-lg border-b-8 border-amber-100 first-letter:uppercase"
+          >
+            56
+          </button>
+          <button
+            onclick="checkAnswer(2)"
+            class="btn-option bg-white hover:bg-violet-50 text-violet-600 text-4xl p-8 rounded-3xl shadow-lg border-b-8 border-violet-100 first-letter:uppercase"
+          >
+            48
+          </button>
+          <button
+            onclick="checkAnswer(3)"
+            class="btn-option bg-white hover:bg-rose-50 text-rose-600 text-4xl p-8 rounded-3xl shadow-lg border-b-8 border-rose-100 first-letter:uppercase"
+          >
+            64
+          </button>
+        </div>
+
+        <!-- Hints Section (Mobile/Small screens) -->
+        <div class="pt-6 border-t-2 border-dashed border-slate-50 italic">
+          <div class="flex justify-center mb-4">
+            <button
+              id="toggle-hint"
+              onclick="toggleHint()"
+              class="bg-slate-50 hover:bg-slate-100 text-slate-500 px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all"
+            >
+              <span id="hint-btn-text">Show Hint 💡</span>
+            </button>
+          </div>
+          <div
+            id="hint-container-mobile"
+            class="hidden flex flex-wrap justify-center items-center gap-2 py-6 min-h-[120px] bg-slate-50/30 rounded-3xl border border-slate-100 xl:hidden"
+          ></div>
+          <!-- Manual Hint Change Button Mobile -->
+          <div class="flex justify-center mt-2">
+            <button
+              id="change-hint-btn-mobile"
+              onclick="renderHint()"
+              class="hidden bg-white hover:bg-slate-50 text-slate-400 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest border border-slate-100 transition-all xl:hidden"
+            >
+              Change View 🔄
+            </button>
+          </div>
+        </div>
+
+        <div
+          id="feedback"
+          class="text-center text-2xl h-8 opacity-0 transition-opacity font-black text-rose-400"
+        >
+          Great! ✨
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="mt-4 flex justify-center">
+        <button
+          id="btn-reset-goal"
+          onclick="resetGoal()"
+          class="text-[10px] font-black text-slate-300 hover:text-rose-400 uppercase tracking-[0.3em] transition-colors"
+        >
+          Reset Progress
+        </button>
+      </div>
+    </div>
+
+    <!-- Modals -->
+    <div
+      id="finish-dialog"
+      class="hidden fixed inset-0 settings-overlay flex items-center justify-center p-4 z-[100]"
+    >
+      <div
+        class="card max-w-sm w-full p-10 rounded-[40px] shadow-2xl text-center border-8 border-white"
+      >
+        <div id="finish-icon" class="text-8xl mb-6 animate-bounce">🏆</div>
+        <h2
+          id="finish-title"
+          class="text-4xl font-black mb-2 text-slate-800 uppercase tracking-tight"
+        >
+          Victory!
+        </h2>
+        <p id="finish-message" class="text-slate-500 mb-8 font-bold">
+          Goal reached!
+        </p>
+        <div
+          class="bg-indigo-50 rounded-3xl p-6 mb-8 border border-indigo-100 italic text-indigo-600 font-medium"
+        >
+          <span id="finish-quote"
+            >"Matematyka to klucz do wszystkich drzwi!" 🔑</span
+          >
+        </div>
+        <button
+          id="btn-play-again"
+          onclick="closeFinishDialog()"
+          class="bg-rose-500 text-white font-black py-5 px-10 rounded-3xl shadow-xl hover:bg-rose-600 transition-all hover:scale-105 w-full text-2xl cursor-pointer border-b-8 border-rose-700 active:border-b-0 active:translate-y-2"
+        >
+          RETRY! 🚀
+        </button>
+      </div>
+    </div>
+
+    <!-- Settings Dialog -->
+    <div
+      id="settings-dialog"
+      class="hidden fixed inset-0 settings-overlay flex items-center justify-center p-4 z-50"
+    >
+      <div
+        class="card max-w-sm w-full p-8 rounded-[40px] shadow-2xl overflow-y-auto max-h-[90vh] border-4 border-white"
+      >
+        <div class="flex justify-between items-center mb-8">
+          <h2
+            id="settings-title"
+            class="text-2xl text-slate-800 font-black uppercase tracking-tight"
+          >
+            Settings ⚙️
+          </h2>
+          <button
+            onclick="closeSettings()"
+            class="text-slate-300 hover:text-slate-500"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="w-8 h-8"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <div class="flex justify-center gap-3 mb-10">
+          <button
+            onclick="setLanguage('pl')"
+            class="lang-btn border-2 px-4 py-2 rounded-2xl bg-white shadow-sm hover:scale-105 transition-all font-bold"
+            data-lang="pl"
+          >
+            🇵🇱 PL
+          </button>
+          <button
+            onclick="setLanguage('en')"
+            class="lang-btn border-2 px-4 py-2 rounded-2xl bg-white shadow-sm hover:scale-105 transition-all font-bold"
+            data-lang="en"
+          >
+            🇺🇸 EN
+          </button>
+          <button
+            onclick="setLanguage('uk')"
+            class="lang-btn border-2 px-4 py-2 rounded-2xl bg-white shadow-sm hover:scale-105 transition-all font-bold"
+            data-lang="uk"
+          >
+            🇺🇦 UK
+          </button>
+        </div>
+
+        <div class="space-y-8">
+          <div class="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+            <p
+              id="ops-label"
+              class="font-black mb-4 text-slate-700 text-sm uppercase tracking-widest"
+            >
+              Operations
+            </p>
+            <div class="grid grid-cols-1 gap-3">
+              <label
+                class="flex items-center gap-4 cursor-pointer bg-white p-3 rounded-2xl border-2 border-slate-100 hover:border-pink-200 transition-colors"
+                ><input
+                  type="checkbox"
+                  id="op-add"
+                  checked
+                  class="w-6 h-6 rounded-lg accent-pink-600"
+                />
+                <span id="op-add-label" class="font-bold text-slate-600 text-lg"
+                  >+ Addition</span
+                ></label
+              >
+              <label
+                class="flex items-center gap-4 cursor-pointer bg-white p-3 rounded-2xl border-2 border-slate-100 hover:border-pink-200 transition-colors"
+                ><input
+                  type="checkbox"
+                  id="op-sub"
+                  class="w-6 h-6 rounded-lg accent-pink-600"
+                />
+                <span id="op-sub-label" class="font-bold text-slate-600 text-lg"
+                  >- Subtraction</span
+                ></label
+              >
+              <label
+                class="flex items-center gap-4 cursor-pointer bg-white p-3 rounded-2xl border-2 border-slate-100 hover:border-pink-200 transition-colors"
+                ><input
+                  type="checkbox"
+                  id="op-mul"
+                  checked
+                  class="w-6 h-6 rounded-lg accent-pink-600"
+                />
+                <span id="op-mul-label" class="font-bold text-slate-600 text-lg"
+                  >× Multiplication</span
+                ></label
+              >
+              <label
+                class="flex items-center gap-4 cursor-pointer bg-white p-3 rounded-2xl border-2 border-slate-100 hover:border-pink-200 transition-colors"
+                ><input
+                  type="checkbox"
+                  id="op-div"
+                  class="w-6 h-6 rounded-lg accent-pink-600"
+                />
+                <span id="op-div-label" class="font-bold text-slate-600 text-lg"
+                  >÷ Division</span
+                ></label
+              >
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div class="bg-sky-50 p-4 rounded-3xl border border-sky-100">
+              <p
+                id="num1-label"
+                class="font-black mb-2 text-sky-800 text-[10px] uppercase tracking-widest"
+              >
+                Limit 1
+              </p>
+              <input
+                type="number"
+                id="limit-1"
+                value="9"
+                min="2"
+                max="100"
+                class="w-full bg-white border-none rounded-xl p-3 text-sky-900 font-extrabold text-2xl shadow-inner outline-none ring-2 ring-transparent focus:ring-sky-300 transition-all"
+              />
+            </div>
+            <div class="bg-amber-50 p-4 rounded-3xl border border-amber-100">
+              <p
+                id="num2-label"
+                class="font-black mb-2 text-amber-800 text-[10px] uppercase tracking-widest"
+              >
+                Limit 2
+              </p>
+              <input
+                type="number"
+                id="limit-2"
+                value="9"
+                min="2"
+                max="100"
+                class="w-full bg-white border-none rounded-xl p-3 text-amber-900 font-extrabold text-2xl shadow-inner outline-none ring-2 ring-transparent focus:ring-amber-300 transition-all"
+              />
+            </div>
+          </div>
+
+          <div class="bg-rose-50 p-6 rounded-3xl border border-rose-100">
+            <label class="flex items-center justify-between mb-4"
+              ><span
+                id="timer-label"
+                class="font-black text-rose-800 uppercase text-sm tracking-widest"
+                >Timer (sec)</span
+              ><input
+                type="checkbox"
+                id="timer-enabled"
+                class="w-8 h-8 accent-rose-600 rounded-xl"
+            /></label>
+            <input
+              type="number"
+              id="timer-value"
+              value="10"
+              min="3"
+              max="60"
+              class="w-full bg-white border-none rounded-2xl p-4 font-black text-rose-900 text-2xl shadow-inner outline-none"
+            />
+          </div>
+
+          <div class="bg-emerald-50 p-6 rounded-3xl border border-emerald-100">
+            <label class="flex items-center justify-between mb-4"
+              ><span
+                id="goal-label"
+                class="font-black text-emerald-800 uppercase text-sm tracking-widest"
+                >Target Goal</span
+              ><input
+                type="checkbox"
+                id="goal-enabled"
+                class="w-8 h-8 accent-emerald-600 rounded-xl"
+            /></label>
+            <input
+              type="number"
+              id="goal-value"
+              value="10"
+              min="5"
+              max="100"
+              class="w-full bg-white border-none rounded-2xl p-4 font-black text-emerald-900 text-2xl shadow-inner outline-none"
+            />
+            <p
+              id="goal-race-desc"
+              class="text-[10px] text-emerald-600 mt-4 italic font-black text-center tracking-widest uppercase"
+            >
+              Goal is the Win!
+            </p>
+          </div>
+        </div>
+
+        <button
+          id="btn-continue"
+          onclick="saveSettings()"
+          class="mt-12 bg-pink-600 text-white font-black py-6 rounded-3xl shadow-xl hover:bg-pink-700 transition-all hover:scale-[1.02] w-full text-2xl border-b-8 border-pink-800 active:border-b-0 active:translate-y-2"
+        >
+          LET'S GO! 🚀
+        </button>
+        <button
+          id="btn-reset-all"
+          onclick="resetAll()"
+          class="mt-8 text-slate-400 hover:text-rose-500 transition-colors text-xs font-black uppercase tracking-[0.4em] w-full text-center"
+        >
+          Reset Everything
+        </button>
+      </div>
+    </div>
+
+    <!-- History Dialog -->
+    <div
+      id="history-dialog"
+      class="hidden fixed inset-0 settings-overlay flex items-center justify-center p-4 z-50"
+    >
+      <div
+        class="card max-w-md w-full max-h-[90vh] p-10 rounded-[40px] flex flex-col shadow-2xl border-4 border-white"
+      >
+        <h2
+          id="history-title"
+          class="text-3xl text-slate-800 mb-8 font-black uppercase tracking-tight"
+        >
+          Recent Runs 📝
+        </h2>
+        <div
+          id="history-content"
+          class="history-list flex-grow mb-8 space-y-4 overflow-y-auto px-2"
+        ></div>
+        <div class="flex gap-4">
+          <button
+            id="btn-history-clear"
+            onclick="clearHistory()"
+            class="bg-slate-50 text-slate-400 font-black py-4 px-8 rounded-2xl border-2 border-slate-100 hover:bg-rose-50 hover:text-rose-500 transition-all flex-1 text-xs uppercase tracking-widest"
+          >
+            Clear
+          </button>
+          <button
+            id="btn-history-close"
+            onclick="closeHistory()"
+            class="bg-slate-800 text-white font-black py-4 px-8 rounded-2xl shadow-lg border-b-4 border-slate-900 hover:bg-slate-700 transition-all flex-1 text-xs uppercase tracking-widest active:border-b-0 active:translate-y-1"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script src="js/i18n.js"></script>
+    <script src="js/settings.js"></script>
+    <script src="js/game.js"></script>
+  </body>
+</html>
