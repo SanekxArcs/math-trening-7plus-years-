@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Flame, Snowflake } from "lucide-react";
 import { comboMultiplier, nextTierAt, penaltyFor, type ScoreState } from "@/engine";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n/useI18n";
 
 interface ComboMeterProps {
   score: ScoreState;
@@ -13,6 +14,7 @@ interface ComboMeterProps {
  * invisible one just feels like the game turned against them.
  */
 export function ComboMeter({ score }: ComboMeterProps) {
+  const { t } = useI18n();
   const multiplier = comboMultiplier(score.goodStreak);
   const target = nextTierAt(score.goodStreak);
   const inBadRun = score.badStreak > 0;
@@ -36,7 +38,7 @@ export function ComboMeter({ score }: ComboMeterProps) {
           >
             <Snowflake className="size-4" aria-hidden />
             <span className="font-display text-sm font-bold tabular-nums">
-              −{penaltyFor(score.badStreak + 1)} next
+              {t("nextMistake", { points: penaltyFor(score.badStreak + 1) })}
             </span>
           </motion.div>
         ) : (
@@ -66,7 +68,7 @@ export function ComboMeter({ score }: ComboMeterProps) {
             </motion.span>
             {score.goodStreak > 0 && (
               <span className="text-xs tabular-nums opacity-70">
-                {score.goodStreak} in a row
+                {t("inARow", { count: score.goodStreak })}
               </span>
             )}
           </motion.div>

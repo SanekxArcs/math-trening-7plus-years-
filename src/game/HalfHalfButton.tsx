@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { Scissors } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n/useI18n";
 
 interface HalfHalfButtonProps {
   readyAt: number;
@@ -23,6 +24,7 @@ export function HalfHalfButton({
   disabled,
   onUse,
 }: HalfHalfButtonProps) {
+  const { t } = useI18n();
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -43,9 +45,7 @@ export function HalfHalfButton({
       onClick={onUse}
       disabled={unavailable}
       whileTap={unavailable ? { scale: 1 } : { scale: 0.94 }}
-      aria-label={
-        cooling ? `50:50 ready in ${remainingSec} seconds` : "Use 50:50 — removes half the wrong answers"
-      }
+      aria-label={cooling ? t("halfHalfReady", { seconds: remainingSec }) : t("useHalfHalf")}
       className={cn(
         "relative flex items-center gap-2 overflow-hidden rounded-full border-b-4 px-5 py-3 font-display font-bold shadow-md transition-colors",
         "focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none",
@@ -62,9 +62,9 @@ export function HalfHalfButton({
         />
       )}
       <Scissors className="relative size-5" aria-hidden />
-      <span className="relative">50:50</span>
+      <span className="relative">{t("halfHalf")}</span>
       <span className="relative rounded-md bg-black/5 px-1.5 py-0.5 text-xs tabular-nums">
-        {cooling ? `${remainingSec}s` : "½ points"}
+        {cooling ? t("secondsShort", { seconds: remainingSec }) : t("halfPoints")}
       </span>
     </motion.button>
   );

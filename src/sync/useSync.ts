@@ -64,8 +64,12 @@ export function useDeviceIdentity() {
  * how a change made on the dashboard reaches the tablet mid-session without
  * either side refreshing.
  */
-export function useSyncedSettings(identity: IdentityState): GameSettings {
+export function useSyncedSettings(identity: IdentityState): {
+  settings: GameSettings;
+  locale: string | null;
+} {
   const [settings, setSettings] = useState<GameSettings>(DEFAULT_SETTINGS);
+  const [locale, setLocale] = useState<string | null>(null);
 
   useEffect(() => {
     void getSettingsMirror<GameSettings>().then((mirrored) => {
@@ -88,8 +92,10 @@ export function useSyncedSettings(identity: IdentityState): GameSettings {
       profileId: _ignoredProfile,
       updatedAt: _ignoredAt,
       updatedBy: _ignoredBy,
+      locale: remoteLocale,
       ...fields
     } = remote;
+    setLocale(remoteLocale);
 
     // Replace wholesale rather than merge, so a setting the parent turned off
     // cannot linger from the mirror.
@@ -98,7 +104,7 @@ export function useSyncedSettings(identity: IdentityState): GameSettings {
     void saveSettingsMirror(next);
   }, [remote]);
 
-  return settings;
+  return { settings, locale };
 }
 
 export interface SyncStatus {

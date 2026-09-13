@@ -61,10 +61,13 @@ export const record = mutation({
 export const settingsForDevice = query({
   args: { profileId: v.id("profiles"), deviceToken: v.string() },
   handler: async (ctx, { profileId, deviceToken }) => {
-    await requireDevice(ctx, profileId, deviceToken);
-    return ctx.db
+    const profile = await requireDevice(ctx, profileId, deviceToken);
+    const settings = await ctx.db
       .query("settings")
       .withIndex("by_profile", (q) => q.eq("profileId", profileId))
       .unique();
+    // The locale rides along on the same subscription, so a language change
+    // made by the parent reaches the tablet without a second round trip.
+    return settings ? { ...settings, locale: profile.locale } : null;
   },
 });

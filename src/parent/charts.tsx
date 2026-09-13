@@ -1,5 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import type { TranslationKey } from "@/i18n/translations";
+import { useI18n, type Translate } from "@/i18n/useI18n";
 
 /**
  * Two single-series charts.
@@ -14,12 +16,17 @@ import { cn } from "@/lib/utils";
  * hover is a chart half the readers cannot use.
  */
 
-export const OP_LABELS: Record<string, string> = {
-  add: "Adding",
-  sub: "Subtracting",
-  mul: "Times tables",
-  div: "Dividing",
-};
+/** Operation label keys; the caller translates them. */
+export const OP_KEYS = {
+  add: "opAdd",
+  sub: "opSub",
+  mul: "opMul",
+  div: "opDiv",
+} as const satisfies Record<string, TranslationKey>;
+
+export function opLabel(t: Translate, op: string): string {
+  return op in OP_KEYS ? t(OP_KEYS[op as keyof typeof OP_KEYS]) : op;
+}
 
 interface Tip {
   x: number;
@@ -65,24 +72,36 @@ function Tooltip({ tip }: { tip: Tip | null }) {
   );
 }
 
+interface AccuracyRow {
+  label: string;
+  correct: number;
+  total: number;
+}
+
 export function AccuracyByOperation({
   byOperation,
 }: {
   byOperation: Record<string, { correct: number; total: number }>;
 }) {
+  const { t } = useI18n();
   const { root, tip, show, hide } = useTooltip();
+
+  const tipLines = (row: AccuracyRow, percent: number) => [
+    `${row.label} — ${percent}%`,
+    t("rightOf", { correct: row.correct, total: row.total }),
+  ];
 
   const rows = Object.entries(byOperation)
     .map(([op, stats]) => ({
       op,
-      label: OP_LABELS[op] ?? op,
+      label: opLabel(t, op),
       accuracy: stats.total === 0 ? 0 : stats.correct / stats.total,
       ...stats,
     }))
     // Weakest first: the parent is looking for what needs work, not a ranking.
     .sort((a, b) => a.accuracy - b.accuracy);
 
-  if (rows.length === 0) return <EmptyNote>No practice recorded yet.</EmptyNote>;
+  if (rows.length === 0) return <EmptyNote>{t("noPracticeYet")}</EmptyNote>;
 
   return (
     <div ref={root} className="relative space-y-3">
@@ -102,19 +121,12 @@ export function AccuracyByOperation({
             </div>
             <button
               type="button"
-              aria-label={`${row.label}: ${percent}% correct, ${row.correct} of ${row.total}`}
-              onMouseMove={(event) =>
-                show(event.currentTarget, [
-                  `${row.label} — ${percent}%`,
-                  `${row.correct} right of ${row.total}`,
-                ])
-              }
-              onFocus={(event) =>
-                show(event.currentTarget, [
-                  `${row.label} — ${percent}%`,
-                  `${row.correct} right of ${row.total}`,
-                ])
-              }
+              aria-label={`${row.label}: ${percent}% — ${t("rightOf", {
+                correct: row.correct,
+                total: row.total,
+              })}`}
+              onMouseMove={(event) => show(event.currentTarget, tipLines(row, percent))}
+              onFocus={(event) => show(event.currentTarget, tipLines(row, percent))}
               onBlur={hide}
               onMouseLeave={hide}
               className="block h-3 w-full cursor-default overflow-hidden rounded-full bg-chart-empty focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
@@ -136,6 +148,7 @@ export function PracticeTrend({
 }: {
   daily: { day: string; total: number; correct: number }[];
 }) {
+  const { t, lang } = useI18n();
   const { root, tip, show, hide } = useTooltip();
   const peak = Math.max(1, ...daily.map((day) => day.total));
   const practised = daily.filter((day) => day.total > 0).length;
@@ -149,8 +162,11 @@ export function PracticeTrend({
           const accuracy = day.total === 0 ? 0 : Math.round((day.correct / day.total) * 100);
           const lines =
             day.total === 0
-              ? [formatDay(day.day), "No practice"]
-              : [formatDay(day.day), `${day.total} questions · ${accuracy}% right`];
+              ? [formatDay(day.day, lang), t("noPractice")]
+              : [
+                  formatDay(day.day, lang),
+                  t("questionsAndAccuracy", { count: day.total, accuracy }),
+                ];
 
           return (
             <button
@@ -179,19 +195,17 @@ export function PracticeTrend({
       </div>
 
       <div className="mt-2 flex justify-between gap-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-        <span>{formatDay(daily[0]?.day ?? "")}</span>
-        <span>
-          practised {practised} of {daily.length} days
-        </span>
-        <span>Today</span>
+        <span>{formatDay(daily[0]?.day ?? "", lang)}</span>
+        <span>{t("practisedDays", { days: practised, total: daily.length })}</span>
+        <span>{t("today")}</span>
       </div>
     </div>
   );
 }
 
-function formatDay(iso: string): string {
+function formatDay(iso: string, lang: string): string {
   if (!iso) return "";
-  return new Date(`${iso}T00:00:00Z`).toLocaleDateString(undefined, {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString(lang, {
     weekday: "short",
     day: "numeric",
     month: "short",

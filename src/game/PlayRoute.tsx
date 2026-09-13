@@ -1,7 +1,11 @@
+import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { convex } from "@/lib/convex";
+import { isLang } from "@/i18n/translations";
+import { useI18n } from "@/i18n/useI18n";
 import { useDeviceIdentity, useOutboxSync, useSyncedSettings } from "@/sync/useSync";
 import { GameScreen } from "./GameScreen";
+import { PairCodeCard } from "./PairCodeCard";
 import { SetupScreen } from "./SetupScreen";
 import { useLocalSettings } from "./useLocalSettings";
 
@@ -24,8 +28,20 @@ function LocalGame() {
 
 function SyncedGame() {
   const { identity, claim } = useDeviceIdentity();
-  const settings = useSyncedSettings(identity);
+  const { settings, locale } = useSyncedSettings(identity);
   const { status, record } = useOutboxSync(identity);
+  const { setLang } = useI18n();
+
+  // The pairing code is generated on this device and shown nowhere else until
+  // the parent is already signed in — which needs the code. So it gets its own
+  // step, once, at the only moment the parent is certainly present.
+  const [codeToConfirm, setCodeToConfirm] = useState<string | null>(null);
+
+  // The profile's locale is parent-set, so on the child's own device it wins
+  // over whatever this browser happened to guess.
+  useEffect(() => {
+    if (isLang(locale)) setLang(locale);
+  }, [locale, setLang]);
 
   if (identity === undefined) {
     return (
@@ -35,7 +51,26 @@ function SyncedGame() {
     );
   }
 
-  if (identity === null) return <SetupScreen onCreate={claim} />;
+  if (identity === null) {
+    return (
+      <SetupScreen
+        onCreate={async (name, pin, chosenLocale, avatarEmoji) => {
+          const created = await claim(name, pin, chosenLocale, avatarEmoji);
+          setCodeToConfirm(created.pairCode);
+        }}
+      />
+    );
+  }
+
+  if (codeToConfirm) {
+    return (
+      <PairCodeCard
+        pairCode={codeToConfirm}
+        name={identity.name}
+        onDone={() => setCodeToConfirm(null)}
+      />
+    );
+  }
 
   return <GameScreen settings={settings} onRecord={record} syncStatus={status} />;
 }

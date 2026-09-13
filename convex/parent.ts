@@ -151,6 +151,19 @@ export const history = query({
   },
 });
 
+export const updateLocale = mutation({
+  args: { token: v.string(), locale: v.string() },
+  handler: async (ctx, { token, locale }) => {
+    const profile = await requireParent(ctx, token);
+    // Allow-list rather than free text: the value is read straight back as the
+    // app's language, and an unknown one would fall through to a blank UI.
+    if (!["pl", "en", "uk"].includes(locale)) {
+      throw new ConvexError("Unsupported language");
+    }
+    await ctx.db.patch(profile._id, { locale });
+  },
+});
+
 export const updateSettings = mutation({
   args: { token: v.string(), patch: v.object(settingsPatchFields) },
   handler: async (ctx, { token, patch }) => {

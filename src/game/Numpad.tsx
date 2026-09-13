@@ -1,6 +1,7 @@
 import { motion } from "motion/react";
 import { Check, Delete } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n/useI18n";
 
 interface NumpadProps {
   value: string;
@@ -26,6 +27,7 @@ export function Numpad({
   onBackspace,
   onSubmit,
 }: NumpadProps) {
+  const { t } = useI18n();
   const disabled = revealed;
 
   return (
@@ -57,7 +59,7 @@ export function Numpad({
 
         <NumKey
           label={<Delete className="size-7" aria-hidden />}
-          ariaLabel="Delete last digit"
+          ariaLabel={t("deleteDigit")}
           disabled={disabled || value.length === 0}
           onClick={onBackspace}
           tone="muted"
@@ -65,7 +67,7 @@ export function Numpad({
         <NumKey label="0" disabled={disabled} onClick={() => onDigit("0")} />
         <NumKey
           label={<Check className="size-8" aria-hidden />}
-          ariaLabel="Check answer"
+          ariaLabel={t("checkAnswer")}
           disabled={disabled || value.length === 0}
           onClick={onSubmit}
           tone="primary"

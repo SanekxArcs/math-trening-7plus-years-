@@ -1,6 +1,7 @@
 import { motion } from "motion/react";
 import type { HintModel } from "@/engine";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n/useI18n";
 
 export const HINT_MODES = ["boxes", "rows", "columns"] as const;
 export type HintMode = (typeof HINT_MODES)[number];
@@ -25,15 +26,14 @@ interface VisualHintProps {
  * called twice per question and skipped a mode each time.
  */
 export function VisualHint({ hint, mode }: VisualHintProps) {
+  const { t } = useI18n();
   const { groups, perGroup } = hint;
 
   // A hint that needs scrolling stops being a hint.
   if (groups <= 0 || perGroup <= 0 || groups * perGroup > 144) {
     return (
       <p className="py-4 text-center text-sm text-muted-foreground">
-        {groups === 0 || perGroup === 0
-          ? "Nothing to count — the answer is 0."
-          : "Too many to draw."}
+        {groups === 0 || perGroup === 0 ? t("nothingToCount") : t("tooManyToDraw")}
       </p>
     );
   }
@@ -42,7 +42,7 @@ export function VisualHint({ hint, mode }: VisualHintProps) {
     <div
       className="flex flex-wrap items-start justify-center gap-2"
       role="img"
-      aria-label={`${groups} groups of ${perGroup}`}
+      aria-label={t("groupsOf", { groups, perGroup })}
     >
       {Array.from({ length: groups }, (_, groupIndex) => (
         <motion.div

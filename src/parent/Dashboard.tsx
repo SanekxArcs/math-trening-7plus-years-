@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DEFAULT_SETTINGS, type GameSettings } from "@/engine";
-import { AccuracyByOperation, EmptyNote, OP_LABELS, PracticeTrend } from "./charts";
+import { useI18n } from "@/i18n/useI18n";
+import { AccuracyByOperation, EmptyNote, PracticeTrend } from "./charts";
 import { HistoryTable } from "./HistoryTable";
 import { SettingsForm } from "./SettingsForm";
 import type { ParentSession } from "./useParentSession";
@@ -17,12 +18,13 @@ interface DashboardProps {
 }
 
 export function Dashboard({ session, onLogout }: DashboardProps) {
+  const { t } = useI18n();
   const data = useQuery(api.parent.overview, { token: session.token });
 
   if (data === undefined) {
     return (
       <main className="mx-auto w-full max-w-3xl px-5 py-8">
-        <EmptyNote>Loading…</EmptyNote>
+        <EmptyNote>{t("loading")}</EmptyNote>
       </main>
     );
   }
@@ -66,22 +68,22 @@ export function Dashboard({ session, onLogout }: DashboardProps) {
           <Button asChild variant="outline" size="sm">
             <Link to="/">
               <Gamepad2 className="size-4" aria-hidden />
-              Game
+              {t("game")}
             </Link>
           </Button>
           <Button variant="ghost" size="sm" onClick={onLogout}>
             <LogOut className="size-4" aria-hidden />
-            Sign out
+            {t("signOut")}
           </Button>
         </div>
       </header>
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatTile label="Accuracy" value={`${Math.round(stats.accuracy * 100)}%`} />
-        <StatTile label="Questions" value={String(stats.sampled)} />
-        <StatTile label="Best streak" value={String(stats.bestStreak)} />
+        <StatTile label={t("accuracy")} value={`${Math.round(stats.accuracy * 100)}%`} />
+        <StatTile label={t("questions")} value={String(stats.sampled)} />
+        <StatTile label={t("bestStreak")} value={String(stats.bestStreak)} />
         <StatTile
-          label="Avg. time"
+          label={t("averageTime")}
           value={stats.averageMs === 0 ? "—" : `${(stats.averageMs / 1000).toFixed(1)}s`}
         />
       </section>
@@ -89,20 +91,20 @@ export function Dashboard({ session, onLogout }: DashboardProps) {
       <Tabs defaultValue="progress">
         <TabsList className="w-full">
           <TabsTrigger value="progress" className="flex-1">
-            Progress
+            {t("tabProgress")}
           </TabsTrigger>
           <TabsTrigger value="history" className="flex-1">
-            History
+            {t("tabHistory")}
           </TabsTrigger>
           <TabsTrigger value="settings" className="flex-1">
-            Settings
+            {t("tabSettings")}
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="progress" className="space-y-4 pt-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Practice, last 14 days</CardTitle>
+              <CardTitle className="text-base">{t("practiceLast14")}</CardTitle>
             </CardHeader>
             <CardContent>
               <PracticeTrend daily={stats.daily} />
@@ -111,7 +113,7 @@ export function Dashboard({ session, onLogout }: DashboardProps) {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Accuracy by operation</CardTitle>
+              <CardTitle className="text-base">{t("accuracyByOperation")}</CardTitle>
             </CardHeader>
             <CardContent>
               <AccuracyByOperation byOperation={stats.byOperation} />
@@ -120,11 +122,11 @@ export function Dashboard({ session, onLogout }: DashboardProps) {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Worth practising</CardTitle>
+              <CardTitle className="text-base">{t("worthPractising")}</CardTitle>
             </CardHeader>
             <CardContent>
               {stats.weakest.length === 0 ? (
-                <EmptyNote>No repeated mistakes yet — nothing to worry about.</EmptyNote>
+                <EmptyNote>{t("noRepeatedMistakes")}</EmptyNote>
               ) : (
                 <ul className="space-y-2">
                   {stats.weakest.map((entry) => {
@@ -139,10 +141,10 @@ export function Dashboard({ session, onLogout }: DashboardProps) {
                           {a} {symbolFor(op)} {b}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          missed {missed} of {entry.total}
+                          {t("missedOf", { missed, total: entry.total })}
                           {entry.wrongAnswers.length > 0 && (
                             <>
-                              {" · answered "}
+                              {` · ${t("answeredWith")} `}
                               <span className="font-bold text-foreground tabular-nums">
                                 {[...new Set(entry.wrongAnswers)].slice(0, 3).join(", ")}
                               </span>
@@ -169,7 +171,7 @@ export function Dashboard({ session, onLogout }: DashboardProps) {
         <TabsContent value="settings" className="pt-4">
           <Card>
             <CardContent className="pt-6">
-              <SettingsForm token={session.token} settings={settings} />
+              <SettingsForm token={session.token} settings={settings} locale={profile.locale} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -204,4 +206,3 @@ function symbolFor(op: string | undefined): string {
   }
 }
 
-export { OP_LABELS };

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { convex } from "@/lib/convex";
+import type { TranslationKey } from "@/i18n/translations";
 
 const KEY = "math_master_parent_session";
 
@@ -28,7 +29,8 @@ function read(): ParentSession | null {
 
 export function useParentSession() {
   const [session, setSession] = useState<ParentSession | null>(read);
-  const [error, setError] = useState<string | null>(null);
+  // A translation key, not a sentence — the caller decides the language.
+  const [error, setError] = useState<TranslationKey | null>(null);
   const [busy, setBusy] = useState(false);
   const logoutMutation = useMutation(api.parent.logout);
 
@@ -56,7 +58,7 @@ export function useParentSession() {
 
   const login = useCallback(async (pairCode: string, pin: string) => {
     if (!convex) {
-      setError("No backend configured");
+      setError("pairFailed");
       return false;
     }
     setBusy(true);
@@ -67,12 +69,9 @@ export function useParentSession() {
       return true;
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause);
-      // Convex wraps thrown ConvexError data; surface the useful half only.
-      setError(
-        message.includes("do not match")
-          ? "That pairing code and PIN do not match."
-          : "Could not sign in. Check your connection and try again.",
-      );
+      // The server deliberately returns the same rejection for a wrong code and
+      // a wrong PIN; anything else is a transport problem.
+      setError(message.includes("do not match") ? "pairWrong" : "pairFailed");
       return false;
     } finally {
       setBusy(false);

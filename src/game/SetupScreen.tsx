@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { motion } from "motion/react";
 import { Loader2 } from "lucide-react";
+import { LANGS, LANG_LABELS } from "@/i18n/translations";
+import { useI18n } from "@/i18n/useI18n";
 
 const AVATARS = ["🦊", "🐼", "🦁", "🐸", "🦄", "🐙", "🐝", "🦖"];
 
@@ -16,6 +18,7 @@ interface SetupScreenProps {
  * rather than leaving them to guess who is meant to type it.
  */
 export function SetupScreen({ onCreate }: SetupScreenProps) {
+  const { t, lang, setLang } = useI18n();
   const [name, setName] = useState("");
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
@@ -33,9 +36,9 @@ export function SetupScreen({ onCreate }: SetupScreenProps) {
     setBusy(true);
     setError(null);
     try {
-      await onCreate(name.trim(), pin, navigator.language.slice(0, 2) || "pl", avatar);
+      await onCreate(name.trim(), pin, lang, avatar);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not create the profile");
+      setError(cause instanceof Error ? cause.message : t("couldNotCreate"));
       setBusy(false);
     }
   };
@@ -48,16 +51,33 @@ export function SetupScreen({ onCreate }: SetupScreenProps) {
         animate={{ opacity: 1, y: 0 }}
         className="space-y-7 rounded-[--radius-xl] bg-card p-7 shadow-xl"
       >
+        <fieldset className="space-y-2">
+          <legend className="sr-only">{t("language")}</legend>
+          <div className="flex justify-center gap-2">
+            {LANGS.map((code) => (
+              <button
+                key={code}
+                type="button"
+                onClick={() => setLang(code)}
+                aria-pressed={lang === code}
+                className={`rounded-full border-2 px-3 py-1.5 text-sm font-bold transition-colors ${
+                  lang === code ? "border-primary bg-secondary" : "border-border bg-card"
+                }`}
+              >
+                {LANG_LABELS[code]}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
         <div className="text-center">
-          <h1 className="font-display text-3xl font-black">Who's playing?</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Set up once. You can change everything later from the parent dashboard.
-          </p>
+          <h1 className="font-display text-3xl font-black">{t("whosPlaying")}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t("setupBlurb")}</p>
         </div>
 
         <div className="space-y-2">
           <label htmlFor="kid-name" className="text-xs font-black uppercase tracking-widest text-muted-foreground">
-            Name
+            {t("name")}
           </label>
           <input
             id="kid-name"
@@ -71,7 +91,7 @@ export function SetupScreen({ onCreate }: SetupScreenProps) {
 
         <fieldset className="space-y-2">
           <legend className="text-xs font-black uppercase tracking-widest text-muted-foreground">
-            Pick a buddy
+            {t("pickABuddy")}
           </legend>
           <div className="flex flex-wrap gap-2">
             {AVATARS.map((emoji) => (
@@ -92,11 +112,9 @@ export function SetupScreen({ onCreate }: SetupScreenProps) {
 
         <div className="space-y-2 rounded-[--radius-md] bg-muted/50 p-4">
           <label htmlFor="parent-pin" className="text-xs font-black uppercase tracking-widest text-muted-foreground">
-            Parent PIN (4–8 digits)
+            {t("parentPin")}
           </label>
-          <p className="text-xs text-muted-foreground">
-            Grown-ups only. This unlocks the dashboard and the settings.
-          </p>
+          <p className="text-xs text-muted-foreground">{t("parentPinBlurb")}</p>
           <input
             id="parent-pin"
             value={pin}
@@ -107,17 +125,17 @@ export function SetupScreen({ onCreate }: SetupScreenProps) {
             className="w-full rounded-[--radius-sm] border-2 border-border bg-background px-4 py-3 font-display text-xl tracking-[0.4em] outline-none focus-visible:border-ring"
           />
           <input
-            aria-label="Confirm parent PIN"
+            aria-label={t("repeat")}
             value={confirmPin}
             onChange={(event) => setConfirmPin(event.target.value.replace(/\D/g, "").slice(0, 8))}
             type="password"
             inputMode="numeric"
             autoComplete="new-password"
-            placeholder="Repeat"
+            placeholder={t("repeat")}
             className="w-full rounded-[--radius-sm] border-2 border-border bg-background px-4 py-3 font-display text-xl tracking-[0.4em] outline-none focus-visible:border-ring"
           />
           {confirmPin.length > 0 && pin !== confirmPin && (
-            <p className="text-xs font-bold text-wrong">The two PINs do not match.</p>
+            <p className="text-xs font-bold text-wrong">{t("pinsDoNotMatch")}</p>
           )}
         </div>
 
@@ -133,7 +151,7 @@ export function SetupScreen({ onCreate }: SetupScreenProps) {
           className="flex w-full items-center justify-center gap-2 rounded-[--radius-lg] border-b-8 border-primary/60 bg-primary py-5 font-display text-xl font-black text-primary-foreground shadow-xl disabled:opacity-40"
         >
           {busy && <Loader2 className="size-5 animate-spin" aria-hidden />}
-          Start playing
+          {t("startPlaying")}
         </button>
       </motion.form>
     </main>

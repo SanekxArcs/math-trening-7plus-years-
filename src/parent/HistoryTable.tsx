@@ -12,6 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { EmptyNote } from "./charts";
+import { useI18n } from "@/i18n/useI18n";
 
 /**
  * The full attempt log, including what they actually picked.
@@ -20,14 +21,15 @@ import { EmptyNote } from "./charts";
  * 54" tells a parent what to practise, where "62% on multiplication" does not.
  */
 export function HistoryTable({ token }: { token: string }) {
+  const { t } = useI18n();
   const [limit, setLimit] = useState(25);
   const page = useQuery(api.parent.history, { token, limit });
 
   if (page === undefined) {
-    return <EmptyNote>Loading…</EmptyNote>;
+    return <EmptyNote>{t("loading")}</EmptyNote>;
   }
   if (page.rows.length === 0) {
-    return <EmptyNote>Nothing recorded yet. Answers appear here as they play.</EmptyNote>;
+    return <EmptyNote>{t("noHistory")}</EmptyNote>;
   }
 
   return (
@@ -36,10 +38,10 @@ export function HistoryTable({ token }: { token: string }) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[34%]">Question</TableHead>
-              <TableHead>Answered</TableHead>
-              <TableHead className="text-right">Time</TableHead>
-              <TableHead className="text-right">Points</TableHead>
+              <TableHead className="w-[34%]">{t("colQuestion")}</TableHead>
+              <TableHead>{t("colAnswered")}</TableHead>
+              <TableHead className="text-right">{t("colTime")}</TableHead>
+              <TableHead className="text-right">{t("colPoints")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -61,15 +63,15 @@ export function HistoryTable({ token }: { token: string }) {
                       <X className="size-4 text-wrong" aria-hidden />
                     )}
                     {row.given === null ? (
-                      <span className="text-muted-foreground">ran out of time</span>
+                      <span className="text-muted-foreground">{t("ranOutOfTime")}</span>
                     ) : (
                       row.given
                     )}
                   </span>
                   <span className="mt-0.5 flex flex-wrap gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
-                    {row.usedHalfHalf && <span>50:50</span>}
-                    {row.usedVisualHint && <span>hint</span>}
-                    {row.mode === "type" && <span>typed</span>}
+                    {row.usedHalfHalf && <span>{t("halfHalf")}</span>}
+                    {row.usedVisualHint && <span>{t("usedHint")}</span>}
+                    {row.mode === "type" && <span>{t("usedTyped")}</span>}
                   </span>
                 </TableCell>
 
@@ -92,7 +94,7 @@ export function HistoryTable({ token }: { token: string }) {
 
       {page.nextBefore !== null && (
         <Button variant="outline" className="w-full" onClick={() => setLimit((n) => n + 25)}>
-          Show more
+          {t("showMore")}
         </Button>
       )}
     </div>

@@ -8,20 +8,24 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import type { Difficulty, GameSettings, Op } from "@/engine";
-import { OP_LABELS } from "./charts";
+import { LANGS, LANG_LABELS, type TranslationKey } from "@/i18n/translations";
+import { useI18n } from "@/i18n/useI18n";
+import { opLabel } from "./charts";
 
 const OPS: Op[] = ["add", "sub", "mul", "div"];
 
-const DIFFICULTIES: { value: Difficulty; label: string; hint: string }[] = [
-  { value: "easy", label: "Easy", hint: "2 answers" },
-  { value: "medium", label: "Medium", hint: "4 answers" },
-  { value: "hard", label: "Hard", hint: "6 answers" },
-  { value: "expert", label: "Expert", hint: "type it in" },
+const DIFFICULTIES: { value: Difficulty; label: TranslationKey; hint: TranslationKey }[] = [
+  { value: "easy", label: "diffEasy", hint: "diffEasyHint" },
+  { value: "medium", label: "diffMedium", hint: "diffMediumHint" },
+  { value: "hard", label: "diffHard", hint: "diffHardHint" },
+  { value: "expert", label: "diffExpert", hint: "diffExpertHint" },
 ];
 
 interface SettingsFormProps {
   token: string;
   settings: GameSettings;
+  /** The child's current language, as stored on their profile. */
+  locale: string;
 }
 
 /**
@@ -29,8 +33,10 @@ interface SettingsFormProps {
  * device live — there is no "apply on their end" step and no refresh on either
  * side.
  */
-export function SettingsForm({ token, settings }: SettingsFormProps) {
+export function SettingsForm({ token, settings, locale }: SettingsFormProps) {
+  const { t } = useI18n();
   const update = useMutation(api.parent.updateSettings);
+  const updateLocale = useMutation(api.parent.updateLocale);
   const [draft, setDraft] = useState<GameSettings>(settings);
   const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
@@ -63,7 +69,7 @@ export function SettingsForm({ token, settings }: SettingsFormProps) {
       window.setTimeout(() => setState("idle"), 2000);
     } catch (cause) {
       setState("error");
-      setMessage(cause instanceof Error ? cause.message : "Could not save");
+      setMessage(cause instanceof Error ? cause.message : t("couldNotSave"));
     }
   };
 
@@ -71,7 +77,31 @@ export function SettingsForm({ token, settings }: SettingsFormProps) {
     <div className="space-y-8">
       <section className="space-y-3">
         <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground">
-          Operations
+          {t("language")}
+        </h3>
+        <div className="flex flex-wrap gap-2">
+          {LANGS.map((code) => (
+            <button
+              key={code}
+              type="button"
+              // Saves immediately rather than waiting for the Save button: this
+              // is the one setting whose effect the parent wants to see on the
+              // child's screen while they are still looking at it.
+              onClick={() => void updateLocale({ token, locale: code })}
+              aria-pressed={locale === code}
+              className={`rounded-full border-2 px-4 py-2 text-sm font-bold transition-colors ${
+                locale === code ? "border-primary bg-secondary" : "border-border bg-card"
+              }`}
+            >
+              {LANG_LABELS[code]}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground">
+          {t("operations")}
         </h3>
         <div className="grid grid-cols-2 gap-2">
           {OPS.map((op) => {
@@ -86,7 +116,7 @@ export function SettingsForm({ token, settings }: SettingsFormProps) {
                   on ? "border-primary bg-secondary" : "border-border bg-card text-muted-foreground"
                 }`}
               >
-                {OP_LABELS[op]}
+                {opLabel(t, op)}
               </button>
             );
           })}
@@ -95,7 +125,7 @@ export function SettingsForm({ token, settings }: SettingsFormProps) {
 
       <section className="space-y-3">
         <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground">
-          Difficulty
+          {t("difficulty")}
         </h3>
         <div className="grid grid-cols-2 gap-2">
           {DIFFICULTIES.map((option) => (
@@ -110,8 +140,8 @@ export function SettingsForm({ token, settings }: SettingsFormProps) {
                   : "border-border bg-card"
               }`}
             >
-              <span className="block font-bold">{option.label}</span>
-              <span className="block text-xs text-muted-foreground">{option.hint}</span>
+              <span className="block font-bold">{t(option.label)}</span>
+              <span className="block text-xs text-muted-foreground">{t(option.hint)}</span>
             </button>
           ))}
         </div>
@@ -120,7 +150,7 @@ export function SettingsForm({ token, settings }: SettingsFormProps) {
       <section className="grid grid-cols-2 gap-4">
         <NumberField
           id="limit1"
-          label="Biggest first number"
+          label={t("biggestFirst")}
           value={draft.limit1}
           min={1}
           max={100}
@@ -128,7 +158,7 @@ export function SettingsForm({ token, settings }: SettingsFormProps) {
         />
         <NumberField
           id="limit2"
-          label="Biggest second number"
+          label={t("biggestSecond")}
           value={draft.limit2}
           min={1}
           max={100}
@@ -138,8 +168,8 @@ export function SettingsForm({ token, settings }: SettingsFormProps) {
 
       <ToggleRow
         id="include-zero-one"
-        label="Include 0 and 1"
-        hint="×0 and ×1 are rules worth drilling, but they make easy questions."
+        label={t("includeZeroOne")}
+        hint={t("includeZeroOneHint")}
         checked={draft.includeZeroOne}
         onChange={(value) => set("includeZeroOne", value)}
       />
@@ -147,18 +177,18 @@ export function SettingsForm({ token, settings }: SettingsFormProps) {
       <section className="space-y-4 rounded-[--radius-md] bg-muted/40 p-4">
         <ToggleRow
           id="timer"
-          label="Time limit"
+          label={t("timeLimit")}
           checked={draft.timerEnabled}
           onChange={(value) => set("timerEnabled", value)}
         />
         {draft.timerEnabled && (
           <SliderField
-            label="Seconds per question"
+            label={t("secondsPerQuestion")}
             value={draft.timerSec}
             min={3}
             max={60}
             onChange={(value) => set("timerSec", value)}
-            format={(value) => `${value}s`}
+            format={(value) => t("secondsShort", { seconds: value })}
           />
         )}
       </section>
@@ -166,13 +196,13 @@ export function SettingsForm({ token, settings }: SettingsFormProps) {
       <section className="space-y-4 rounded-[--radius-md] bg-muted/40 p-4">
         <ToggleRow
           id="goal"
-          label="Points goal"
+          label={t("pointsGoal")}
           checked={draft.goalEnabled}
           onChange={(value) => set("goalEnabled", value)}
         />
         {draft.goalEnabled && (
           <SliderField
-            label="Points to win a round"
+            label={t("pointsToWin")}
             value={draft.goalTarget}
             min={20}
             max={1000}
@@ -185,32 +215,34 @@ export function SettingsForm({ token, settings }: SettingsFormProps) {
       <section className="space-y-4 rounded-[--radius-md] bg-muted/40 p-4">
         <ToggleRow
           id="halfhalf"
-          label="50:50 lifeline"
-          hint="Halves the points for that question."
+          label={t("halfHalfLifeline")}
+          hint={t("halfHalfLifelineHint")}
           checked={draft.halfHalfEnabled}
           onChange={(value) => set("halfHalfEnabled", value)}
         />
         {draft.halfHalfEnabled && (
           <SliderField
-            label="Wait between uses"
+            label={t("waitBetweenUses")}
             value={draft.halfHalfCooldownSec}
             min={0}
             max={300}
             step={5}
             onChange={(value) => set("halfHalfCooldownSec", value)}
-            format={(value) => (value === 0 ? "no wait" : `${value}s`)}
+            format={(value) =>
+              value === 0 ? t("noWait") : t("secondsShort", { seconds: value })
+            }
           />
         )}
         <ToggleRow
           id="visual-hint"
-          label="Picture hint"
-          hint="Shows the groups of dots. Worth ¾ points."
+          label={t("pictureHint")}
+          hint={t("pictureHintHint")}
           checked={draft.visualHintEnabled}
           onChange={(value) => set("visualHintEnabled", value)}
         />
         <ToggleRow
           id="sound"
-          label="Sound"
+          label={t("sound")}
           checked={draft.soundEnabled}
           onChange={(value) => set("soundEnabled", value)}
         />
@@ -230,7 +262,7 @@ export function SettingsForm({ token, settings }: SettingsFormProps) {
       >
         {state === "saving" && <Loader2 className="size-4 animate-spin" aria-hidden />}
         {state === "saved" && <Check className="size-4" aria-hidden />}
-        {state === "saved" ? "Saved — sent to their device" : "Save settings"}
+        {state === "saved" ? t("savedToDevice") : t("saveSettings")}
       </Button>
     </div>
   );
@@ -282,7 +314,7 @@ function ToggleRow({
 }: {
   id: string;
   label: string;
-  hint?: string;
+  hint?: string | undefined;
   checked: boolean;
   onChange: (value: boolean) => void;
 }) {

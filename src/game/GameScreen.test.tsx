@@ -4,14 +4,20 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { DEFAULT_SETTINGS, type GameSettings } from "@/engine";
+import { I18nProvider } from "@/i18n/useI18n";
 import { GameScreen } from "./GameScreen";
 
 function renderGame(overrides: Partial<GameSettings> = {}) {
   const settings = { ...DEFAULT_SETTINGS, ...overrides };
+  // Pin the language so the assertions below are about behaviour, not about
+  // whichever locale the test environment happens to report.
+  localStorage.setItem("math_master_lang", "en");
   return render(
-    <MemoryRouter>
-      <GameScreen settings={settings} />
-    </MemoryRouter>,
+    <I18nProvider>
+      <MemoryRouter>
+        <GameScreen settings={settings} />
+      </MemoryRouter>
+    </I18nProvider>,
   );
 }
 

@@ -4,6 +4,7 @@ import { Eye, RefreshCw, Settings2, Trophy } from "lucide-react";
 import { Link } from "react-router-dom";
 import { displayPoints } from "@/engine";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n/useI18n";
 import { ComboMeter } from "./ComboMeter";
 import { HalfHalfButton } from "./HalfHalfButton";
 import { Numpad } from "./Numpad";
@@ -30,6 +31,7 @@ export interface GameScreenProps {
  * what lets the same component run local-only, synced, and under test.
  */
 export function GameScreen({ settings, onRecord, syncStatus }: GameScreenProps) {
+  const { t } = useI18n();
   const [hintMode, setHintMode] = useState<HintMode>("boxes");
   const [hintOpen, setHintOpen] = useState(false);
 
@@ -93,7 +95,7 @@ export function GameScreen({ settings, onRecord, syncStatus }: GameScreenProps) 
             {displayPoints(state.score)}
           </motion.span>
           <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-            pts
+            {t("points")}
           </span>
         </div>
 
@@ -103,7 +105,7 @@ export function GameScreen({ settings, onRecord, syncStatus }: GameScreenProps) 
 
         <Link
           to="/parent"
-          aria-label="Parent dashboard"
+          aria-label={t("parentDashboard")}
           className="rounded-full bg-card p-2.5 text-muted-foreground shadow-sm transition-colors hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
         >
           <Settings2 className="size-5" aria-hidden />
@@ -160,7 +162,7 @@ export function GameScreen({ settings, onRecord, syncStatus }: GameScreenProps) 
                 )}
               >
                 {outcome.timedOut
-                  ? "Time's up!"
+                  ? t("timeUp")
                   : outcome.isCorrect
                     ? `+${outcome.delta}${outcome.multiplier > 1 ? ` ×${outcome.multiplier}!` : ""}`
                     : `${outcome.delta}`}
@@ -210,7 +212,7 @@ export function GameScreen({ settings, onRecord, syncStatus }: GameScreenProps) 
             className="flex items-center gap-2 rounded-full bg-card px-5 py-3 font-display font-bold text-muted-foreground shadow-md transition-colors hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
           >
             <Eye className="size-5" aria-hidden />
-            {hintOpen ? "Hide hint" : "Show hint"}
+            {hintOpen ? t("hideHint") : t("showHint")}
           </button>
         )}
       </section>
@@ -231,7 +233,7 @@ export function GameScreen({ settings, onRecord, syncStatus }: GameScreenProps) 
                 className="flex items-center gap-2 rounded-full bg-card px-4 py-2 text-xs font-black uppercase tracking-widest text-muted-foreground shadow-sm focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <RefreshCw className="size-3.5" aria-hidden />
-                Change view
+                {t("changeView")}
               </button>
             </div>
           </motion.section>
@@ -258,18 +260,21 @@ export function GameScreen({ settings, onRecord, syncStatus }: GameScreenProps) 
             >
               <Trophy className="mx-auto size-16 text-combo" aria-hidden />
               <h2 className="mt-4 font-display text-3xl font-black text-correct">
-                Goal reached!
+                {t("goalReached")}
               </h2>
               <p className="mt-2 text-muted-foreground">
-                {displayPoints(state.score)} points ·{" "}
-                {state.score.correct} correct · best streak {state.score.bestStreak}
+                {t("finishSummary", {
+                  points: displayPoints(state.score),
+                  correct: state.score.correct,
+                  streak: state.score.bestStreak,
+                })}
               </p>
               <button
                 type="button"
                 onClick={game.restart}
                 className="mt-8 w-full rounded-[--radius-lg] border-b-8 border-primary/60 bg-primary py-5 font-display text-xl font-black text-primary-foreground shadow-xl focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
               >
-                Play again
+                {t("playAgain")}
               </button>
             </motion.div>
           </motion.div>

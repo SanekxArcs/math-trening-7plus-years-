@@ -1,5 +1,6 @@
 import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n/useI18n";
 
 interface OptionGridProps {
   options: number[];
@@ -18,6 +19,7 @@ export function OptionGrid({
   chosen,
   onPick,
 }: OptionGridProps) {
+  const { t } = useI18n();
   // Two tiles read better side by side; four and six want two columns of large
   // targets on a tablet held in portrait.
   const columns = options.length === 2 ? "grid-cols-2" : "grid-cols-2";
@@ -38,7 +40,7 @@ export function OptionGrid({
             type="button"
             disabled={revealed || isHidden}
             onClick={() => onPick(value)}
-            aria-label={`Answer ${value}`}
+            aria-label={t("answerN", { value })}
             initial={{ opacity: 0, y: 12 }}
             animate={{
               opacity: isHidden ? 0.12 : 1,
