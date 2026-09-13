@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Eye, Settings2, Trophy } from "lucide-react";
+import { Eye, Flag, Pause, Play, Settings2, Trophy } from "lucide-react";
 import { Link } from "react-router-dom";
 import { displayPoints } from "@/engine";
 import { cn } from "@/lib/utils";
@@ -74,12 +74,6 @@ export function GameScreen({
     celebrateWin();
   }, [state.won, settings.soundEnabled]);
 
-  // Any open dialog freezes the countdown.
-  const { setPaused } = game;
-  useEffect(() => {
-    setPaused(state.won);
-  }, [state.won, setPaused]);
-
   const goalFraction = useMemo(() => {
     if (!settings.goalEnabled) return 0;
     return Math.min(1, displayPoints(state.score) / settings.goalTarget);
@@ -113,10 +107,22 @@ export function GameScreen({
 
         {syncStatus && <SyncBadge status={syncStatus} />}
 
+        {/* Deliberately next to the dashboard link rather than down among the
+            answers: stopping is a grown-up-shaped action, and a big friendly
+            button by the tiles is one a child taps by accident mid-combo. */}
+        <button
+          type="button"
+          onClick={game.pause}
+          aria-label={t("pauseGame")}
+          className="shrink-0 rounded-full bg-card p-2.5 text-muted-foreground shadow-sm transition-colors hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
+        >
+          <Pause className="size-5" aria-hidden />
+        </button>
+
         <Link
           to="/parent"
           aria-label={t("parentDashboard")}
-          className="rounded-full bg-card p-2.5 text-muted-foreground shadow-sm transition-colors hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
+          className="shrink-0 rounded-full bg-card p-2.5 text-muted-foreground shadow-sm transition-colors hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
         >
           <Settings2 className="size-5" aria-hidden />
         </Link>
@@ -253,25 +259,60 @@ export function GameScreen({
 
       </div>
 
+      {/* Paused. Shown for a deliberate tap and for the tab going away alike,
+          so a child who comes back to the tablet is never dropped straight
+          into a running countdown they have not looked at yet. */}
       <AnimatePresence>
-        {state.won && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 p-6 backdrop-blur-sm"
-          >
-            <motion.div
-              initial={{ scale: 0.85, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              transition={{ type: "spring", stiffness: 260, damping: 22 }}
-              className="w-full max-w-sm rounded-[--radius-xl] bg-card p-8 text-center shadow-2xl"
-              role="dialog"
-              aria-modal="true"
-            >
-              <Trophy className="mx-auto size-16 text-combo" aria-hidden />
-              <h2 className="mt-4 font-display text-3xl font-black text-correct">
-                {t("goalReached")}
+        {state.paused && state.phase !== "finished" && (
+          <Backdrop>
+            <Dialog>
+              <Pause className="mx-auto size-14 text-primary" aria-hidden />
+              <h2 className="mt-4 font-display text-3xl font-black">{t("paused")}</h2>
+              <p className="mt-2 text-sm text-muted-foreground">{t("pausedBlurb")}</p>
+              <p className="mt-4 font-display text-lg font-black tabular-nums">
+                {t("finishSummary", {
+                  points: displayPoints(state.score),
+                  correct: state.score.correct,
+                  streak: state.score.bestStreak,
+                })}
+              </p>
+
+              <button
+                type="button"
+                onClick={game.resume}
+                className="mt-6 flex w-full items-center justify-center gap-2 rounded-[--radius-lg] border-b-8 border-primary/60 bg-primary py-5 font-display text-xl font-black text-primary-foreground shadow-xl focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
+              >
+                <Play className="size-5" aria-hidden />
+                {t("keepPlaying")}
+              </button>
+              <button
+                type="button"
+                onClick={game.stop}
+                className="mt-3 w-full rounded-[--radius-lg] py-3 font-display font-bold text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
+              >
+                {t("finishSession")}
+              </button>
+            </Dialog>
+          </Backdrop>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {state.phase === "finished" && (
+          <Backdrop>
+            <Dialog>
+              {state.won ? (
+                <Trophy className="mx-auto size-16 text-combo" aria-hidden />
+              ) : (
+                <Flag className="mx-auto size-16 text-primary" aria-hidden />
+              )}
+              <h2
+                className={cn(
+                  "mt-4 font-display text-3xl font-black",
+                  state.won ? "text-correct" : "text-foreground",
+                )}
+              >
+                {state.won ? t("goalReached") : t("sessionOver")}
               </h2>
               <p className="mt-2 text-muted-foreground">
                 {t("finishSummary", {
@@ -287,12 +328,41 @@ export function GameScreen({
               >
                 {t("playAgain")}
               </button>
-            </motion.div>
-          </motion.div>
+            </Dialog>
+          </Backdrop>
         )}
       </AnimatePresence>
 
       {pairCode && <PairCodeBadge pairCode={pairCode} />}
     </main>
+  );
+}
+
+/** Shared chrome for the two full-screen dialogs, so they cannot drift apart. */
+function Backdrop({ children }: { children: React.ReactNode }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 p-6 backdrop-blur-sm"
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+function Dialog({ children }: { children: React.ReactNode }) {
+  return (
+    <motion.div
+      initial={{ scale: 0.85, y: 20 }}
+      animate={{ scale: 1, y: 0 }}
+      transition={{ type: "spring", stiffness: 260, damping: 22 }}
+      className="w-full max-w-sm rounded-[--radius-xl] bg-card p-8 text-center shadow-2xl"
+      role="dialog"
+      aria-modal="true"
+    >
+      {children}
+    </motion.div>
   );
 }

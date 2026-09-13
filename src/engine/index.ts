@@ -10,6 +10,7 @@ export * from "./problem.ts";
 export * from "./distractors.ts";
 export * from "./scoring.ts";
 export * from "./mastery.ts";
+export * from "./timing.ts";
 
 export interface NextQuestionOptions {
   /** What the child already knows, keyed by `factId`. */
