@@ -196,6 +196,8 @@ describe("buildDistractors", () => {
       op: "mul" as const,
       a: 0,
       b: 5,
+      factA: 0,
+      factB: 5,
       prompt: "0 × 5",
       answer: 0,
       hint: { groups: 5, perGroup: 0 },

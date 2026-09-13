@@ -83,7 +83,25 @@ describe("translate", () => {
   });
 
   it("renders every language's every key without leftover placeholders", () => {
-    const sample = { count: 1, points: 2, seconds: 3, value: 4, groups: 5, perGroup: 6, correct: 7, total: 8, streak: 9, accuracy: 10, days: 11, missed: 12, name: "Zosia" };
+    // Every placeholder used anywhere in the catalogue. A new key with a new
+    // placeholder name fails here until it is added, which is the point.
+    const sample = {
+      count: 1,
+      points: 2,
+      seconds: 3,
+      value: 4,
+      groups: 5,
+      perGroup: 6,
+      correct: 7,
+      total: 8,
+      streak: 9,
+      accuracy: 10,
+      days: 11,
+      missed: 12,
+      percent: 13,
+      name: "Zosia",
+      when: "today",
+    };
     for (const lang of LANGS) {
       for (const key of KEYS) {
         expect(translate(lang, key, sample), `${lang}.${key}`).not.toMatch(/\{\w+\}/);

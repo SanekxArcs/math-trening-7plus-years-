@@ -9,6 +9,7 @@ import { DEFAULT_SETTINGS, type GameSettings } from "@/engine";
 import { useI18n } from "@/i18n/useI18n";
 import { AccuracyByOperation, EmptyNote, PracticeTrend } from "./charts";
 import { HistoryTable } from "./HistoryTable";
+import { TablesGrid } from "./TablesGrid";
 import { SettingsForm } from "./SettingsForm";
 import type { ParentSession } from "./useParentSession";
 
@@ -45,6 +46,7 @@ export function Dashboard({ session, onLogout }: DashboardProps) {
         halfHalfCooldownSec: data.settings.halfHalfCooldownSec,
         visualHintEnabled: data.settings.visualHintEnabled,
         soundEnabled: data.settings.soundEnabled,
+        adaptive: data.settings.adaptive ?? DEFAULT_SETTINGS.adaptive,
       }
     : DEFAULT_SETTINGS;
 
@@ -92,6 +94,9 @@ export function Dashboard({ session, onLogout }: DashboardProps) {
         <TabsList className="w-full">
           <TabsTrigger value="progress" className="flex-1">
             {t("tabProgress")}
+          </TabsTrigger>
+          <TabsTrigger value="tables" className="flex-1">
+            {t("tabTables")}
           </TabsTrigger>
           <TabsTrigger value="history" className="flex-1">
             {t("tabHistory")}
@@ -156,6 +161,24 @@ export function Dashboard({ session, onLogout }: DashboardProps) {
                   })}
                 </ul>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="tables" className="pt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">{t("tabTables")}</CardTitle>
+              <p className="text-xs text-muted-foreground">{t("gridNumbersAre")}</p>
+            </CardHeader>
+            <CardContent>
+              <TablesGrid
+                token={session.token}
+                limit1={settings.limit1}
+                limit2={settings.limit2}
+                includeZeroOne={settings.includeZeroOne}
+                initialDifficulty={settings.difficulty}
+              />
             </CardContent>
           </Card>
         </TabsContent>

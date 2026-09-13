@@ -20,6 +20,8 @@ export interface GameSettings {
   halfHalfCooldownSec: number;
   visualHintEnabled: boolean;
   soundEnabled: boolean;
+  /** Bias questions towards facts the child is weakest on. */
+  adaptive: boolean;
 }
 
 /**
@@ -38,6 +40,13 @@ export interface Problem {
   a: number;
   /** Right operand exactly as displayed. */
   b: number;
+  /**
+   * The operands that identify this cell of the times table, which are not
+   * always the ones on screen: "28 ÷ 7" is the fact (4, 7), so it lands in the
+   * same grid square whether it is asked as a division or as 4 × 7.
+   */
+  factA: number;
+  factB: number;
   prompt: string;
   answer: number;
   hint: HintModel | null;
@@ -64,4 +73,5 @@ export const DEFAULT_SETTINGS: GameSettings = {
   halfHalfCooldownSec: 30,
   visualHintEnabled: true,
   soundEnabled: true,
+  adaptive: true,
 };

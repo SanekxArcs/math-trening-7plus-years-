@@ -151,6 +151,39 @@ export const history = query({
   },
 });
 
+/**
+ * Every tracked table cell at one difficulty.
+ *
+ * One subscription feeds all four grids; splitting by operation client-side is
+ * cheaper than four queries, and the row count is bounded by the configured
+ * limits rather than by how long the child has been practising.
+ */
+export const tables = query({
+  args: { token: v.string(), difficulty: v.string() },
+  handler: async (ctx, { token, difficulty }) => {
+    const profile = await requireParent(ctx, token);
+
+    const rows = await ctx.db
+      .query("factStats")
+      .withIndex("by_profile_difficulty", (q) =>
+        q.eq("profileId", profile._id).eq("difficulty", difficulty),
+      )
+      .take(4000);
+
+    return rows.map((row) => ({
+      op: row.op,
+      a: row.a,
+      b: row.b,
+      attempts: row.attempts,
+      correct: row.correct,
+      totalMs: row.totalMs,
+      bestMs: row.bestMs,
+      strength: row.strength,
+      lastSeenAt: row.lastSeenAt,
+    }));
+  },
+});
+
 export const updateLocale = mutation({
   args: { token: v.string(), locale: v.string() },
   handler: async (ctx, { token, locale }) => {

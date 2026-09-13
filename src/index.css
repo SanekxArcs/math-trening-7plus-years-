@@ -52,6 +52,13 @@
   --chart-grid: oklch(0.92 0.02 300);
   --chart-empty: oklch(0.95 0.01 300);
 
+  /* Ordinal mastery ramp, one hue, light to dark. Validated against the card
+     surface; "unseen" is not part of the ramp because it is a different
+     category, not a lower value — it gets no fill at all. */
+  --mastery-1: #b298f9;
+  --mastery-2: #8e64e7;
+  --mastery-3: #6c2dc9;
+
   /* Per-option button hues, indexed 0..5 for up to six answer tiles */
   --option-0: oklch(0.7 0.15 240);
   --option-1: oklch(0.78 0.15 80);
@@ -96,6 +103,10 @@
   --chart-series: #9875ea;
   --chart-grid: oklch(0.35 0.03 292);
   --chart-empty: oklch(0.32 0.03 292);
+
+  --mastery-1: #5e4793;
+  --mastery-2: #8362cd;
+  --mastery-3: #a787f6;
 }
 
 @theme inline {
@@ -130,6 +141,9 @@
   --color-chart-series: var(--chart-series);
   --color-chart-grid: var(--chart-grid);
   --color-chart-empty: var(--chart-empty);
+  --color-mastery-1: var(--mastery-1);
+  --color-mastery-2: var(--mastery-2);
+  --color-mastery-3: var(--mastery-3);
 
   --radius-sm: calc(var(--radius) - 8px);
   --radius-md: calc(var(--radius) - 4px);

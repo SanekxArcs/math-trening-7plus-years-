@@ -167,6 +167,14 @@ export function SettingsForm({ token, settings, locale }: SettingsFormProps) {
       </section>
 
       <ToggleRow
+        id="adaptive"
+        label={t("adaptivePractice")}
+        hint={t("adaptivePracticeHint")}
+        checked={draft.adaptive}
+        onChange={(value) => set("adaptive", value)}
+      />
+
+      <ToggleRow
         id="include-zero-one"
         label={t("includeZeroOne")}
         hint={t("includeZeroOneHint")}

@@ -13,7 +13,7 @@ import { TimerBar } from "./TimerBar";
 import { HintPanel } from "./HintPanel";
 import { celebrateCombo, celebrateWin } from "./celebrate";
 import { playSound } from "./sound";
-import { useGame, type AttemptRecord } from "./useGame";
+import { useGame, type AttemptRecord, type StatsSource } from "./useGame";
 import { SyncBadge } from "./SyncBadge";
 import type { GameSettings } from "@/engine";
 import type { SyncStatus } from "@/sync/useSync";
@@ -23,6 +23,8 @@ export interface GameScreenProps {
   /** Where finished attempts go. The outbox in the real app, a spy in tests. */
   onRecord?: (records: AttemptRecord[]) => void;
   syncStatus?: SyncStatus | null;
+  /** What the child already knows, for adaptive question selection. */
+  getStats?: StatsSource;
 }
 
 /**
@@ -30,7 +32,7 @@ export interface GameScreenProps {
  * knows nothing about Dexie, Convex or whether a backend exists at all. That is
  * what lets the same component run local-only, synced, and under test.
  */
-export function GameScreen({ settings, onRecord, syncStatus }: GameScreenProps) {
+export function GameScreen({ settings, onRecord, syncStatus, getStats }: GameScreenProps) {
   const { t } = useI18n();
   const [hintOpen, setHintOpen] = useState(false);
 
@@ -39,7 +41,7 @@ export function GameScreen({ settings, onRecord, syncStatus }: GameScreenProps) 
     [onRecord],
   );
 
-  const game = useGame({ settings, onAttempt });
+  const game = useGame({ settings, onAttempt, ...(getStats ? { getStats } : {}) });
   const { state } = game;
   const { problem } = state.question;
   const revealed = state.phase !== "asking";
@@ -134,18 +136,22 @@ export function GameScreen({ settings, onRecord, syncStatus }: GameScreenProps) 
           riding at the top with dead space below. */}
       <div className="flex flex-1 flex-col justify-center gap-6">
       <section className="flex flex-col items-center justify-center py-4">
-        <AnimatePresence mode="wait">
-          <motion.h1
-            key={state.questionId}
-            initial={{ opacity: 0, y: 16, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -16, scale: 0.95 }}
-            transition={{ type: "spring", stiffness: 300, damping: 26 }}
-            className="font-display text-6xl font-black tabular-nums tracking-tight sm:text-7xl"
-          >
-            {problem.prompt}
-          </motion.h1>
-        </AnimatePresence>
+        {/* Deliberately not wrapped in AnimatePresence.
+            With `mode="wait"` the outgoing question stayed on screen until its
+            exit animation finished, while the answer tiles — which are not in
+            an AnimatePresence — had already swapped to the next question. For a
+            few hundred milliseconds the child saw the previous question above
+            the next question's answers. Keying the heading makes it remount in
+            the same frame as the tiles, so the two can never disagree. */}
+        <motion.h1
+          key={state.questionId}
+          initial={{ opacity: 0, y: 16, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ type: "spring", stiffness: 300, damping: 26 }}
+          className="font-display text-6xl font-black tabular-nums tracking-tight sm:text-7xl"
+        >
+          {problem.prompt}
+        </motion.h1>
 
         <div className="h-9 pt-2">
           <AnimatePresence>

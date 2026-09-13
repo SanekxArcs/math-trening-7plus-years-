@@ -147,6 +147,32 @@ is kept as the visual, now driven by points instead of raw counts.
 - Groups render as five-frames — 9 shows as 5+4 — which is how a child is
   taught to count them.
 
+## 4.6 Adaptive practice
+
+Every answer updates a per-fact record — one cell of one table, at one
+difficulty: `mul:7:8:medium`. A fact carries a **strength** from 0 to 1 that
+rises with correct answers (faster answers earn more, a lifeline earns less),
+collapses to 40% of itself on a mistake, and decays with a 21-day half-life so
+nothing stays "learned" untouched.
+
+Question selection weighs every cell of the table and draws proportionally, so
+practice bends towards what is weak without ever locking onto one square. The
+ordering it produces, strongest claim on the child's time first:
+
+1. a fact they got **wrong**
+2. a fact they half-know
+3. a fact **never asked**
+4. one they are getting
+5. one they know — floored, never zero, so it still comes back
+
+Point 1 above point 3 is the whole design and was the easy thing to get wrong:
+weighed naively the two came out identical, and a known mistake vanished back
+into a table of sixty unseen cells.
+
+Measured end to end on an 8-cell table: a fact answered wrong every time was
+asked 28 of 70 questions (40%, against a uniform 12.5%) and its share *rose*
+over the run, while every other cell reached 80–89% strength.
+
 ## 5. Data model (Convex)
 
 ```ts
@@ -239,6 +265,12 @@ multiplication.
 **Phase 7 — Polish. In progress.** i18n (pl/en/uk) with typed keys is done, as
 is reduced-motion. Outstanding: a keyboard and screen-reader pass, and a
 Lighthouse PWA check.
+
+**Phase 8 — Adaptive practice. Done.** Per-fact mastery (§4.6), local-first so
+selection works offline, mirrored to Convex by the same idempotent mutation that
+records attempts. A **Tables** tab in the dashboard shows every cell of every
+operation, coloured by mastery and labelled with the average response time, per
+difficulty. Parents can switch it off.
 
 ## 9. Decisions still open
 

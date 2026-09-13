@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { convex } from "@/lib/convex";
 import { isLang } from "@/i18n/translations";
 import { useI18n } from "@/i18n/useI18n";
 import { useDeviceIdentity, useOutboxSync, useSyncedSettings } from "@/sync/useSync";
+import { useFactStats } from "@/sync/useFactStats";
 import { GameScreen } from "./GameScreen";
 import { PairCodeCard } from "./PairCodeCard";
 import { SetupScreen } from "./SetupScreen";
@@ -23,14 +24,27 @@ export function PlayRoute() {
 /** No backend configured — the game still plays, it just records nothing. */
 function LocalGame() {
   const [settings] = useLocalSettings();
-  return <GameScreen settings={settings} />;
+  const { getStats, recordFacts } = useFactStats();
+  return <GameScreen settings={settings} onRecord={recordFacts} getStats={getStats} />;
 }
 
 function SyncedGame() {
   const { identity, claim } = useDeviceIdentity();
   const { settings, locale } = useSyncedSettings(identity);
   const { status, record } = useOutboxSync(identity);
+  const { getStats, recordFacts } = useFactStats();
   const { setLang } = useI18n();
+
+  // Mastery is updated locally first and synchronously, so the very next
+  // question already reflects the answer just given — the outbox catches up
+  // with the server in its own time.
+  const onRecord = useCallback(
+    (records: Parameters<typeof record>[0]) => {
+      recordFacts(records);
+      void record(records);
+    },
+    [record, recordFacts],
+  );
 
   // The pairing code is generated on this device and shown nowhere else until
   // the parent is already signed in — which needs the code. So it gets its own
@@ -72,5 +86,12 @@ function SyncedGame() {
     );
   }
 
-  return <GameScreen settings={settings} onRecord={record} syncStatus={status} />;
+  return (
+    <GameScreen
+      settings={settings}
+      onRecord={onRecord}
+      syncStatus={status}
+      getStats={getStats}
+    />
+  );
 }

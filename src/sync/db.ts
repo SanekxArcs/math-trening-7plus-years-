@@ -1,5 +1,6 @@
 import Dexie, { type Table } from "dexie";
 import type { AttemptRecord } from "@/game/useGame";
+import type { StoredFact } from "./facts";
 
 export interface OutboxRow extends AttemptRecord {
   /** 0 = still owed to the server. Indexed, so the flush query is cheap. */
@@ -22,12 +23,20 @@ export interface DeviceIdentity {
 class MathMasterDb extends Dexie {
   outbox!: Table<OutboxRow, string>;
   meta!: Table<MetaRow, string>;
+  facts!: Table<StoredFact, string>;
 
   constructor() {
     super("math-master");
     this.version(1).stores({
       outbox: "clientId, synced, createdAt",
       meta: "key",
+    });
+    // Per-fact mastery, added in v2. Dexie migrates existing databases in
+    // place, so an installed app keeps its outbox and settings mirror.
+    this.version(2).stores({
+      outbox: "clientId, synced, createdAt",
+      meta: "key",
+      facts: "id, lastSeenAt",
     });
   }
 }

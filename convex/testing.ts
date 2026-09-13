@@ -21,6 +21,22 @@ export const listProfiles = internalQuery({
   },
 });
 
+/** Fills in settings fields added after a row was written. */
+export const backfill = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const rows = await ctx.db.query("settings").collect();
+    let patched = 0;
+    for (const row of rows) {
+      if (row.adaptive === undefined) {
+        await ctx.db.patch(row._id, { adaptive: true });
+        patched++;
+      }
+    }
+    return { scanned: rows.length, patched };
+  },
+});
+
 export const purgeProfile = internalMutation({
   args: { pairCode: v.string() },
   handler: async (ctx, { pairCode }) => {

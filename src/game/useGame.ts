@@ -4,14 +4,21 @@ import {
   INITIAL_SCORE,
   applyAttempt,
   defaultRng,
+  factId,
   halfHalfRemoves,
   isGoalReached,
   nextQuestion,
   randInt,
+  type FactStat,
   type GameSettings,
   type Question,
   type ScoreState,
 } from "@/engine";
+
+/** Supplies what the child already knows, read at the moment a question is made. */
+export type StatsSource = () => ReadonlyMap<string, FactStat>;
+
+const NO_STATS: StatsSource = () => new Map();
 
 /** How long the right answer stays on screen before the next question. */
 export const REVEAL_MS = 1100;
@@ -22,6 +29,9 @@ export interface AttemptRecord {
   op: string;
   a: number;
   b: number;
+  /** Canonical table cell; see Problem.factA. */
+  factA: number;
+  factB: number;
   prompt: string;
   answer: number;
   given: number | null;
@@ -73,19 +83,32 @@ export interface GameState {
 type Action =
   | { type: "answer"; value: number; now: number }
   | { type: "timeout"; now: number }
-  | { type: "next"; now: number }
+  | { type: "next"; now: number; getStats: StatsSource }
   | { type: "halfHalf"; now: number }
   | { type: "visualHint" }
   | { type: "typeDigit"; digit: string }
   | { type: "backspace" }
   | { type: "pause"; value: boolean }
-  | { type: "applySettings"; settings: GameSettings; now: number }
-  | { type: "restart"; now: number }
+  | { type: "applySettings"; settings: GameSettings; now: number; getStats: StatsSource }
+  | { type: "restart"; now: number; getStats: StatsSource }
   | { type: "drain" };
 
-function freshQuestion(settings: GameSettings, state: Partial<GameState>, now: number) {
+function freshQuestion(
+  settings: GameSettings,
+  state: Partial<GameState>,
+  now: number,
+  getStats: StatsSource,
+) {
+  const previous = state.question?.problem;
   return {
-    question: nextQuestion(settings, defaultRng),
+    question: nextQuestion(settings, defaultRng, {
+      stats: getStats(),
+      now,
+      // Never ask the same cell twice running, however weak it is.
+      avoid: previous
+        ? factId(previous.op, previous.factA, previous.factB, settings.difficulty)
+        : undefined,
+    }),
     questionId: (state.questionId ?? 0) + 1,
     askedAt: now,
     phase: "asking" as const,
@@ -100,6 +123,7 @@ function freshQuestion(settings: GameSettings, state: Partial<GameState>, now: n
 export function createInitialState(
   settings: GameSettings = DEFAULT_SETTINGS,
   now: number = Date.now(),
+  getStats: StatsSource = NO_STATS,
 ): GameState {
   return {
     settings,
@@ -108,7 +132,7 @@ export function createInitialState(
     paused: false,
     pending: [],
     halfHalfReadyAt: 0,
-    ...freshQuestion(settings, {}, now),
+    ...freshQuestion(settings, {}, now, getStats),
   };
 }
 
@@ -140,6 +164,8 @@ function settle(
     op: problem.op,
     a: problem.a,
     b: problem.b,
+    factA: problem.factA,
+    factB: problem.factB,
     prompt: problem.prompt,
     answer: problem.answer,
     given,
@@ -187,7 +213,10 @@ export function gameReducer(state: GameState, action: Action): GameState {
 
     case "next":
       if (state.phase === "finished") return state;
-      return { ...state, ...freshQuestion(state.settings, state, action.now) };
+      return {
+        ...state,
+        ...freshQuestion(state.settings, state, action.now, action.getStats),
+      };
 
     case "halfHalf": {
       if (state.phase !== "asking") return state;
@@ -243,7 +272,7 @@ export function gameReducer(state: GameState, action: Action): GameState {
       return {
         ...state,
         settings: action.settings,
-        ...freshQuestion(action.settings, state, action.now),
+        ...freshQuestion(action.settings, state, action.now, action.getStats),
       };
     }
 
@@ -253,7 +282,7 @@ export function gameReducer(state: GameState, action: Action): GameState {
         score: INITIAL_SCORE,
         won: false,
         halfHalfReadyAt: 0,
-        ...freshQuestion(state.settings, state, action.now),
+        ...freshQuestion(state.settings, state, action.now, action.getStats),
       };
 
     case "drain":
@@ -264,13 +293,23 @@ export function gameReducer(state: GameState, action: Action): GameState {
 export interface UseGameOptions {
   settings: GameSettings;
   onAttempt?: (records: AttemptRecord[]) => void;
+  /**
+   * Read synchronously whenever a question is built. A getter rather than a
+   * value because the map is mutated in place as answers land, and the reducer
+   * needs whatever is current at that instant.
+   */
+  getStats?: StatsSource;
 }
 
-export function useGame({ settings, onAttempt }: UseGameOptions) {
+export function useGame({ settings, onAttempt, getStats = NO_STATS }: UseGameOptions) {
+  const statsRef = useRef(getStats);
+  statsRef.current = getStats;
+  const readStats = useCallback<StatsSource>(() => statsRef.current(), []);
+
   const [state, dispatch] = useReducer(
     gameReducer,
     settings,
-    (initial: GameSettings) => createInitialState(initial),
+    (initial: GameSettings) => createInitialState(initial, Date.now(), readStats),
   );
 
   // Settings arriving from the parent dashboard (or from local storage on boot)
@@ -281,8 +320,8 @@ export function useGame({ settings, onAttempt }: UseGameOptions) {
   useEffect(() => {
     if (appliedSettings.current === settings) return;
     appliedSettings.current = settings;
-    dispatch({ type: "applySettings", settings, now: Date.now() });
-  }, [settings, appliedSettings]);
+    dispatch({ type: "applySettings", settings, now: Date.now(), getStats: readStats });
+  }, [settings, appliedSettings, readStats]);
 
   /**
    * One owner for the advance-to-next-question timer, keyed on the question and
@@ -294,9 +333,12 @@ export function useGame({ settings, onAttempt }: UseGameOptions) {
   useEffect(() => {
     if (state.phase !== "revealed") return;
     const delay = state.outcome?.timedOut ? TIMEOUT_REVEAL_MS : REVEAL_MS;
-    const id = window.setTimeout(() => dispatch({ type: "next", now: Date.now() }), delay);
+    const id = window.setTimeout(
+      () => dispatch({ type: "next", now: Date.now(), getStats: readStats }),
+      delay,
+    );
     return () => window.clearTimeout(id);
-  }, [state.phase, state.questionId, state.outcome?.timedOut]);
+  }, [state.phase, state.questionId, state.outcome?.timedOut, readStats]);
 
   /**
    * The countdown. Paused while a dialog is open, so the clock cannot run out
@@ -353,6 +395,9 @@ export function useGame({ settings, onAttempt }: UseGameOptions) {
     useHalfHalf: useCallback(() => dispatch({ type: "halfHalf", now: Date.now() }), []),
     useVisualHint: useCallback(() => dispatch({ type: "visualHint" }), []),
     setPaused: useCallback((value: boolean) => dispatch({ type: "pause", value }), []),
-    restart: useCallback(() => dispatch({ type: "restart", now: Date.now() }), []),
+    restart: useCallback(
+      () => dispatch({ type: "restart", now: Date.now(), getStats: readStats }),
+      [readStats],
+    ),
   };
 }

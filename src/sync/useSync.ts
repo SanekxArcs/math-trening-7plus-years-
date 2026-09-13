@@ -98,8 +98,13 @@ export function useSyncedSettings(identity: IdentityState): {
     setLocale(remoteLocale);
 
     // Replace wholesale rather than merge, so a setting the parent turned off
-    // cannot linger from the mirror.
-    const next: GameSettings = { ...DEFAULT_SETTINGS, ...fields };
+    // cannot linger from the mirror. `adaptive` is spelled out because an older
+    // row may not have it, and spreading `undefined` would beat the default.
+    const next: GameSettings = {
+      ...DEFAULT_SETTINGS,
+      ...fields,
+      adaptive: fields.adaptive ?? DEFAULT_SETTINGS.adaptive,
+    };
     setSettings(next);
     void saveSettingsMirror(next);
   }, [remote]);

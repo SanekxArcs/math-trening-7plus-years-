@@ -15,6 +15,7 @@ const DEFAULTS = {
   halfHalfCooldownSec: 30,
   visualHintEnabled: true,
   soundEnabled: true,
+  adaptive: true,
 };
 
 export const findByPairCode = internalQuery({

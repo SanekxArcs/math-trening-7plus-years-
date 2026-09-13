@@ -1,4 +1,5 @@
 import { randInt, pick, type Rng } from "./rng.ts";
+import type { FactChoice } from "./mastery.ts";
 import type { AnswerMode, Difficulty, GameSettings, Op, Problem } from "./types.ts";
 
 const OPTION_COUNT: Record<Difficulty, number> = {
@@ -34,21 +35,33 @@ function operandRange(settings: GameSettings, which: 1 | 2): [number, number] {
 
 export function generateProblem(settings: GameSettings, rng: Rng): Problem {
   const op: Op = settings.ops.length > 0 ? pick(rng, settings.ops) : "add";
-
   const [min1, max1] = operandRange(settings, 1);
   const [min2, max2] = operandRange(settings, 2);
+  return buildProblem({
+    op,
+    a: randInt(rng, min1, max1),
+    b: randInt(rng, min2, max2),
+  });
+}
 
-  let a = randInt(rng, min1, max1);
-  let b = randInt(rng, min2, max2);
+/**
+ * Turns a chosen fact into the question as it will be shown.
+ *
+ * `factA`/`factB` always come back unchanged, so the answer lands in the same
+ * grid cell however it was asked.
+ */
+export function buildProblem(choice: FactChoice): Problem {
+  const { op } = choice;
+  let { a, b } = choice;
 
   switch (op) {
     case "add":
-      return { op, a, b, prompt: `${a} + ${b}`, answer: a + b, hint: null };
+      return { op, a, b, factA: a, factB: b, prompt: `${a} + ${b}`, answer: a + b, hint: null };
 
     case "sub": {
       // Keep the result non-negative: a 7-year-old has not met negatives yet.
       if (a < b) [a, b] = [b, a];
-      return { op, a, b, prompt: `${a} − ${b}`, answer: a - b, hint: null };
+      return { op, a, b, factA: a, factB: b, prompt: `${a} − ${b}`, answer: a - b, hint: null };
     }
 
     case "mul":
@@ -56,6 +69,8 @@ export function generateProblem(settings: GameSettings, rng: Rng): Problem {
         op,
         a,
         b,
+        factA: a,
+        factB: b,
         prompt: `${a} × ${b}`,
         answer: a * b,
         hint: { groups: b, perGroup: a },
@@ -70,6 +85,8 @@ export function generateProblem(settings: GameSettings, rng: Rng): Problem {
         op,
         a: product,
         b,
+        factA: a,
+        factB: b,
         prompt: `${product} ÷ ${b}`,
         answer: a,
         hint: { groups: b, perGroup: a },

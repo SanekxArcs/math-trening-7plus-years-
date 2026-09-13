@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { DEFAULT_SETTINGS, type GameSettings } from "@/engine";
@@ -119,6 +119,39 @@ describe("GameScreen", () => {
 
     expect(await screen.findByText(`+${25}`)).toBeInTheDocument();
   });
+
+  it("never shows a question next to another question's answers", async () => {
+    // The heading used to live in an AnimatePresence with mode="wait", so the
+    // outgoing question stayed on screen while the tiles had already swapped to
+    // the next one. A child reading the prompt was answering a different sum.
+    //
+    // The wait is on the *tiles* changing, not the prompt: waiting for the
+    // prompt would step right past the window the bug lived in.
+    const user = userEvent.setup();
+    renderGame({ difficulty: "medium", timerEnabled: false, goalEnabled: false });
+
+    for (let round = 0; round < 4; round++) {
+      const answer = solveVisibleQuestion();
+      const shown = optionButtons().map((b) => Number(b.textContent));
+
+      expect(
+        shown,
+        `round ${round}: tiles ${shown.join(",")} do not answer the question on screen`,
+      ).toContain(answer);
+
+      await user.click(screen.getByRole("button", { name: `Answer ${answer}` }));
+
+      const before = shown.join(",");
+      await waitFor(
+        () => {
+          expect(optionButtons().map((b) => Number(b.textContent)).join(",")).not.toBe(
+            before,
+          );
+        },
+        { timeout: 4000 },
+      );
+    }
+  }, 20_000);
 
   it("keeps the goal bar and points in step", async () => {
     const user = userEvent.setup();
