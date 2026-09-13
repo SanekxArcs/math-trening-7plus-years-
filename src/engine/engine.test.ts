@@ -6,10 +6,12 @@ import {
   applyAttempt,
   buildDistractors,
   buildOptions,
+  clampAttemptMs,
   comboMultiplier,
   displayPoints,
   generateProblem,
   halfHalfRemoves,
+  MAX_ATTEMPT_MS,
   nextQuestion,
   nextTierAt,
   optionCount,
@@ -489,5 +491,28 @@ describe("applyAttempt", () => {
     applyAttempt(before, correct);
     applyAttempt(before, wrong);
     expect(before).toEqual(snapshot);
+  });
+});
+
+describe("response times", () => {
+  it("keeps a real answer exactly as measured", () => {
+    expect(clampAttemptMs(3421)).toBe(3421);
+  });
+
+  it("caps an abandoned question rather than letting it skew an average", () => {
+    // Ten minutes and an hour are the same event — the tablet was put down —
+    // and neither should be able to move a fact's average more than the cap.
+    expect(clampAttemptMs(600_000)).toBe(MAX_ATTEMPT_MS);
+    expect(clampAttemptMs(3_600_000)).toBe(MAX_ATTEMPT_MS);
+  });
+
+  it("treats an impossible time as slow, never as instant", () => {
+    // A clock that moved backwards mid-question, or a missing value from an
+    // older build. It has to land on a real number — NaN would poison every
+    // sum it touches — and on the safe side of it: reading as instant would
+    // earn speed credit for a fact the child never demonstrated.
+    expect(clampAttemptMs(-5)).toBe(MAX_ATTEMPT_MS);
+    expect(clampAttemptMs(Number.NaN)).toBe(MAX_ATTEMPT_MS);
+    expect(clampAttemptMs(Number.POSITIVE_INFINITY)).toBe(MAX_ATTEMPT_MS);
   });
 });

@@ -184,6 +184,22 @@ check(
 const history = await client.query(anyApi.parent.history, { token: session.token, limit: 2 });
 check("history paginates", history.rows.length === 2 && history.nextBefore !== null);
 
+console.log("\nResponse time cap");
+// A tablet left face-up on the table for two and a half hours. The device caps
+// this before sending; the server caps it again, because the average response
+// time in the dashboard is only worth reading if nothing can skew it that far.
+await client.mutation(anyApi.attempts.record, {
+  profileId,
+  deviceToken,
+  records: [attempt("a-slow", { ms: 9_000_000 })],
+});
+const latest = await client.query(anyApi.parent.history, { token: session.token, limit: 1 });
+check(
+  "an abandoned question is stored as two minutes",
+  latest.rows[0]?.ms === 120_000,
+  String(latest.rows[0]?.ms),
+);
+
 console.log("\nRemote settings");
 await client.mutation(anyApi.parent.updateSettings, {
   token: session.token,

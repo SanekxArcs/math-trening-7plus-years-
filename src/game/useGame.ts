@@ -3,6 +3,7 @@ import {
   DEFAULT_SETTINGS,
   INITIAL_SCORE,
   applyAttempt,
+  clampAttemptMs,
   defaultRng,
   factId,
   halfHalfRemoves,
@@ -74,11 +75,24 @@ export interface GameState {
   halfHalfReadyAt: number;
   typed: string;
   won: boolean;
-  /** True while any dialog is open — freezes the countdown. */
+  /** The session was ended on purpose rather than by reaching the goal. */
+  stopped: boolean;
+  /**
+   * Every reason the clock is currently stopped. A set rather than a boolean
+   * because two owners — the pause button and the tab going away — must not be
+   * able to un-pause each other's pause.
+   */
+  pausedBy: PauseReason[];
+  /** Derived from `pausedBy`; what the UI and the countdown read. */
   paused: boolean;
+  /** Epoch ms the pause began, so the time away can be handed back. */
+  pausedAt: number | null;
   /** Drained by the persistence effect, never read by the UI. */
   pending: AttemptRecord[];
 }
+
+/** Who stopped the clock. */
+export type PauseReason = "manual" | "away";
 
 type Action =
   | { type: "answer"; value: number; now: number }
@@ -88,7 +102,8 @@ type Action =
   | { type: "visualHint" }
   | { type: "typeDigit"; digit: string }
   | { type: "backspace" }
-  | { type: "pause"; value: boolean }
+  | { type: "pause"; reason: PauseReason; value: boolean; now: number }
+  | { type: "stop" }
   | { type: "applySettings"; settings: GameSettings; now: number; getStats: StatsSource }
   | { type: "restart"; now: number; getStats: StatsSource }
   | { type: "drain" };
@@ -129,7 +144,10 @@ export function createInitialState(
     settings,
     score: INITIAL_SCORE,
     won: false,
+    stopped: false,
+    pausedBy: [],
     paused: false,
+    pausedAt: null,
     pending: [],
     halfHalfReadyAt: 0,
     ...freshQuestion(settings, {}, now, getStats),
@@ -145,7 +163,9 @@ function settle(
   const { problem, options, mode } = state.question;
   const isCorrect = !timedOut && given === problem.answer;
 
-  const elapsed = now - state.askedAt;
+  // Time spent with the game paused was already handed back by shifting
+  // `askedAt` forward, and the cap catches everything that was not a pause.
+  const elapsed = clampAttemptMs(now - state.askedAt);
   const fast =
     isCorrect &&
     state.settings.timerEnabled &&
@@ -204,11 +224,15 @@ function settle(
 export function gameReducer(state: GameState, action: Action): GameState {
   switch (action.type) {
     case "answer":
-      if (state.phase !== "asking") return state;
+      // Paused is not merely a visual state: an answer that arrives while the
+      // clock is stopped — a stray tap behind the dialog, a queued event from
+      // before the tab was hidden — is not one the child gave to a question
+      // they were looking at.
+      if (state.phase !== "asking" || state.paused) return state;
       return settle(state, action.value, false, action.now);
 
     case "timeout":
-      if (state.phase !== "asking") return state;
+      if (state.phase !== "asking" || state.paused) return state;
       return settle(state, null, true, action.now);
 
     case "next":
@@ -261,10 +285,58 @@ export function gameReducer(state: GameState, action: Action): GameState {
     case "backspace":
       return { ...state, typed: state.typed.slice(0, -1) };
 
-    case "pause":
+    case "pause": {
       // Identity-stable when nothing changes, so a caller that dispatches this
       // from an effect on every render cannot spin.
-      return state.paused === action.value ? state : { ...state, paused: action.value };
+      const held = state.pausedBy.includes(action.reason);
+      if (held === action.value) return state;
+
+      const pausedBy = action.value
+        ? [...state.pausedBy, action.reason]
+        : state.pausedBy.filter((reason) => reason !== action.reason);
+      const paused = pausedBy.length > 0;
+
+      // Still paused for some other reason; nothing to settle up.
+      if (paused === state.paused) return { ...state, pausedBy };
+
+      if (paused) return { ...state, pausedBy, paused: true, pausedAt: action.now };
+
+      /**
+       * Resuming. The question is given back exactly the time the game was
+       * away by moving its start forward, which fixes the recorded response
+       * time and the countdown in one move — a child who left a 10-second
+       * timer at 6 seconds comes back to 6 seconds.
+       *
+       * Capped at `now`: a settings change or a restart can build a fresh
+       * question while the pause is still running, and without this its start
+       * would land in the future and the next answer would be recorded as
+       * instant — an undeserved speed credit against a fact they never saw.
+       */
+      const away = state.pausedAt === null ? 0 : Math.max(0, action.now - state.pausedAt);
+      return {
+        ...state,
+        pausedBy,
+        paused: false,
+        pausedAt: null,
+        askedAt: Math.min(action.now, state.askedAt + away),
+      };
+    }
+
+    /**
+     * Ending a session deliberately. The question on screen is abandoned, not
+     * answered: it is recorded as nothing at all, because a child who stops to
+     * eat lunch has not got it wrong.
+     */
+    case "stop":
+      if (state.phase === "finished") return state;
+      return {
+        ...state,
+        phase: "finished",
+        stopped: true,
+        pausedBy: [],
+        paused: false,
+        pausedAt: null,
+      };
 
     case "applySettings": {
       // Difficulty or operations changing mid-question would leave stale tiles
@@ -281,6 +353,10 @@ export function gameReducer(state: GameState, action: Action): GameState {
         ...state,
         score: INITIAL_SCORE,
         won: false,
+        stopped: false,
+        pausedBy: [],
+        paused: false,
+        pausedAt: null,
         halfHalfReadyAt: 0,
         ...freshQuestion(state.settings, state, action.now, action.getStats),
       };
@@ -332,13 +408,16 @@ export function useGame({ settings, onAttempt, getStats = NO_STATS }: UseGameOpt
    */
   useEffect(() => {
     if (state.phase !== "revealed") return;
+    // Paused counts as away: the next question waits rather than being asked to
+    // an empty room and starting its clock there.
+    if (state.paused) return;
     const delay = state.outcome?.timedOut ? TIMEOUT_REVEAL_MS : REVEAL_MS;
     const id = window.setTimeout(
       () => dispatch({ type: "next", now: Date.now(), getStats: readStats }),
       delay,
     );
     return () => window.clearTimeout(id);
-  }, [state.phase, state.questionId, state.outcome?.timedOut, readStats]);
+  }, [state.phase, state.questionId, state.paused, state.outcome?.timedOut, readStats]);
 
   /**
    * The countdown. Paused while a dialog is open, so the clock cannot run out
@@ -371,6 +450,30 @@ export function useGame({ settings, onAttempt, getStats = NO_STATS }: UseGameOpt
     state.settings.timerSec,
   ]);
 
+  /**
+   * The pause nobody presses.
+   *
+   * A child does not tap "pause" before wandering off — they switch apps, or
+   * the tablet sleeps. Without this the countdown would expire unseen and
+   * charge them for a wrong answer they never saw, and the question they left
+   * would come back recorded as a twenty-minute answer.
+   */
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const sync = () =>
+      dispatch({
+        type: "pause",
+        reason: "away",
+        value: document.visibilityState === "hidden",
+        now: Date.now(),
+      });
+
+    document.addEventListener("visibilitychange", sync);
+    // Covers the case where the app is restored into a hidden tab.
+    sync();
+    return () => document.removeEventListener("visibilitychange", sync);
+  }, []);
+
   // Hand finished attempts to whoever persists them, then clear the queue.
   useEffect(() => {
     if (state.pending.length === 0) return;
@@ -394,7 +497,15 @@ export function useGame({ settings, onAttempt, getStats = NO_STATS }: UseGameOpt
     backspace: useCallback(() => dispatch({ type: "backspace" }), []),
     useHalfHalf: useCallback(() => dispatch({ type: "halfHalf", now: Date.now() }), []),
     useVisualHint: useCallback(() => dispatch({ type: "visualHint" }), []),
-    setPaused: useCallback((value: boolean) => dispatch({ type: "pause", value }), []),
+    pause: useCallback(
+      () => dispatch({ type: "pause", reason: "manual", value: true, now: Date.now() }),
+      [],
+    ),
+    resume: useCallback(
+      () => dispatch({ type: "pause", reason: "manual", value: false, now: Date.now() }),
+      [],
+    ),
+    stop: useCallback(() => dispatch({ type: "stop" }), []),
     restart: useCallback(
       () => dispatch({ type: "restart", now: Date.now(), getStats: readStats }),
       [readStats],

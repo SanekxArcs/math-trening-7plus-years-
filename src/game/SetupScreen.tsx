@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion } from "motion/react";
-import { Loader2 } from "lucide-react";
+import { Loader2, LineChart } from "lucide-react";
+import { Link } from "react-router-dom";
 import { LANGS, LANG_LABELS } from "@/i18n/translations";
 import { useI18n } from "@/i18n/useI18n";
 
@@ -153,6 +154,18 @@ export function SetupScreen({ onCreate }: SetupScreenProps) {
           {busy && <Loader2 className="size-5 animate-spin" aria-hidden />}
           {t("startPlaying")}
         </button>
+
+        {/* A parent opening the app on their own laptop lands here, on a form
+            that asks them to create a second profile for a child who already
+            has one. This is the way out: the pairing code and PIN they already
+            have are enough to reach the dashboard from any device. */}
+        <Link
+          to="/parent"
+          className="flex items-center justify-center gap-2 rounded-[--radius-md] py-2 text-sm font-bold text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
+        >
+          <LineChart className="size-4" aria-hidden />
+          {t("parentLogin")}
+        </Link>
       </motion.form>
     </main>
   );

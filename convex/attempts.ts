@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { checkDevice } from "./auth";
 import { EMPTY_FACT, factId, updateFact } from "../src/engine/mastery.ts";
+import { clampAttemptMs } from "../src/engine/timing.ts";
 import type { Difficulty, Op } from "../src/engine/types.ts";
 import type { MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
@@ -60,8 +61,13 @@ export const record = mutation({
         .unique();
 
       if (existing) continue;
-      await ctx.db.insert("attempts", { profileId, ...record });
-      await foldIntoFact(ctx, profileId, record);
+
+      // The device already caps this, but the cap is enforced here too: it is
+      // the last point before a wild response time — an old build, a wrong
+      // clock — becomes part of an average the parent reads as fact.
+      const row = { ...record, ms: clampAttemptMs(record.ms) };
+      await ctx.db.insert("attempts", { profileId, ...row });
+      await foldIntoFact(ctx, profileId, row);
       inserted++;
     }
 

@@ -153,6 +153,24 @@ describe("GameScreen", () => {
     }
   }, 20_000);
 
+  it("pauses on demand, and finishing ends the session", async () => {
+    const user = userEvent.setup();
+    renderGame({ timerEnabled: false, goalEnabled: false });
+
+    await user.click(screen.getByRole("button", { name: "Pause the game" }));
+    expect(await screen.findByRole("dialog")).toHaveTextContent("Paused");
+
+    await user.click(screen.getByRole("button", { name: /Keep playing/ }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(optionButtons().length).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole("button", { name: "Pause the game" }));
+    await user.click(screen.getByRole("button", { name: /Finish for now/ }));
+
+    expect(await screen.findByText("Nice work!")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Play again" })).toBeInTheDocument();
+  });
+
   it("keeps the goal bar and points in step", async () => {
     const user = userEvent.setup();
     const { container } = renderGame({

@@ -190,6 +190,34 @@ Measured end to end on an 8-cell table: a fact answered wrong every time was
 asked 28 of 70 questions (40%, against a uniform 12.5%) and its share *rose*
 over the run, while every other cell reached 80–89% strength.
 
+## 4.7 Sessions, and what the clock counts
+
+Response time is the second signal the app teaches from — a fact answered right
+but slowly is not yet known — so it is only worth having if it measures thinking
+and nothing else. A seven-year-old's session ends the way it ends: the tablet is
+taken away, the screen locks, someone calls them for lunch. Three defences, in
+the order they catch things:
+
+1. **Stopping on purpose.** A pause control sits in the header, next to the
+   dashboard link and away from the answer tiles. It freezes the countdown and
+   offers *keep playing* or *finish for now*. Finishing shows the session
+   summary. The question on screen is abandoned, not answered: it records
+   nothing at all, because a child who stopped has not got it wrong.
+2. **Stopping without saying so.** Nobody taps pause before wandering off, so
+   the tab going away pauses the game too. Pause reasons are a set, not a
+   boolean — coming back from a locked screen must not dismiss a pause the
+   child is looking at — and resuming hands the time back by moving the
+   question's start forward, which corrects the recorded time and the countdown
+   together. Capped at *now*, so a question built mid-pause cannot start in the
+   future and make the next answer look instant.
+3. **The cap.** Anything past **two minutes** is recorded as two minutes, on the
+   device and again on the server. A single question left open across a lunch
+   break would otherwise move a fact's average from four seconds to four minutes
+   and leave the dashboard wrong for good. An impossible time — NaN, or negative
+   from a clock that moved backwards — is recorded as the cap rather than as
+   zero: reading as instant would earn speed credit and quietly retire a fact
+   the child never demonstrated.
+
 ## 5. Data model (Convex)
 
 ```ts
@@ -240,6 +268,11 @@ offline start still renders correctly.
 4. Gating happens **server-side in the Convex functions**, not in the React
    router. A hidden route is not access control, and the kid is the most likely
    person to go looking.
+5. Three ways in, because a parent may be on any device: the settings icon in
+   the game, the floating pairing-code badge (which shows the code without
+   signing in), and a link on the setup screen — a parent opening the app on
+   their own laptop lands on a form asking them to create a profile for a child
+   who already has one, and the code and PIN they already hold are enough.
 
 Dashboard contents: score and accuracy over time, per-operation and per-fact
 breakdown (which table is weak), the full attempt log including the chosen wrong
@@ -288,6 +321,16 @@ selection works offline, mirrored to Convex by the same idempotent mutation that
 records attempts. A **Tables** tab in the dashboard shows every cell of every
 operation, coloured by mastery and labelled with the average response time, per
 difficulty. Parents can switch it off.
+
+**Phase 9 — Sessions and hosting. Done.** The pause/finish control and the
+clock rules in §4.7. Hosting is static-only by construction — Convex is the
+whole backend, so Vercel runs no functions and every request is a CDN file. The
+bundle is split so a deploy re-sends only what changed (React, Convex and the
+animation runtime are their own chunks), the parent dashboard is loaded on
+demand and kept out of the service worker's precache — a child's tablet never
+downloads it — and `vercel.json` caches hashed assets immutably while holding
+`index.html` and `sw.js` to revalidate, so updates still land. First install
+dropped from 776 KiB precached to 515 KiB.
 
 ## 9. Decisions still open
 
