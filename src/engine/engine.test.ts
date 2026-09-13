@@ -369,9 +369,48 @@ describe("applyAttempt", () => {
     expect(last.tierUp).toBe(true);
   });
 
-  it("discounts the visual hint and rewards a fast answer", () => {
-    expect(applyAttempt(INITIAL_SCORE, { ...correct, usedVisualHint: true }).delta).toBe(8);
+  it("rewards a fast answer", () => {
     expect(applyAttempt(INITIAL_SCORE, { ...correct, fast: true }).delta).toBe(13);
+  });
+
+  it("scores nothing and ends the run when the picture hint was used", () => {
+    let state = INITIAL_SCORE;
+    for (let i = 0; i < 6; i++) state = applyAttempt(state, correct).state;
+    expect(state.goodStreak).toBe(6);
+    expect(state.rawPoints).toBe(80); // 5 x10 then the x2 tier
+
+    const hinted = applyAttempt(state, { ...correct, usedVisualHint: true });
+    expect(hinted.delta).toBe(0);
+    expect(hinted.state.rawPoints).toBe(80); // no points, but none taken away
+    expect(hinted.state.goodStreak).toBe(0); // the run ends
+    expect(hinted.state.correct).toBe(7); // it was still a correct answer
+    expect(hinted.state.wrong).toBe(0);
+    expect(hinted.state.bestStreak).toBe(6);
+  });
+
+  it("lets the picture hint clear a bad run without paying a penalty", () => {
+    let state = INITIAL_SCORE;
+    for (let i = 0; i < 3; i++) state = applyAttempt(state, wrong).state;
+    expect(state.badStreak).toBe(3);
+    const points = state.rawPoints;
+
+    const hinted = applyAttempt(state, { ...correct, usedVisualHint: true });
+    expect(hinted.state.badStreak).toBe(0);
+    expect(hinted.state.rawPoints).toBe(points);
+  });
+
+  it("takes the harsher of the two lifelines when both were used", () => {
+    let state = INITIAL_SCORE;
+    for (let i = 0; i < 6; i++) state = applyAttempt(state, correct).state;
+
+    const both = applyAttempt(state, {
+      ...correct,
+      usedHalfHalf: true,
+      usedVisualHint: true,
+    });
+    // 50:50 alone would keep the streak; the picture hint ends it either way.
+    expect(both.delta).toBe(0);
+    expect(both.state.goodStreak).toBe(0);
   });
 
   it("scores nothing for a 50:50 answer but keeps the streak alive", () => {
@@ -393,14 +432,10 @@ describe("applyAttempt", () => {
     expect(applyAttempt(lifeline.state, correct).delta).toBe(20);
   });
 
-  it("ignores other bonuses when 50:50 was used", () => {
-    const result = applyAttempt(INITIAL_SCORE, {
-      ...correct,
-      usedHalfHalf: true,
-      usedVisualHint: true,
-      fast: true,
-    });
-    expect(result.delta).toBe(0);
+  it("ignores the speed bonus when 50:50 was used", () => {
+    expect(
+      applyAttempt(INITIAL_SCORE, { ...correct, usedHalfHalf: true, fast: true }).delta,
+    ).toBe(0);
   });
 
   it("scales with difficulty", () => {

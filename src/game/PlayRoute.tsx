@@ -92,6 +92,7 @@ function SyncedGame() {
       onRecord={onRecord}
       syncStatus={status}
       getStats={getStats}
+      pairCode={identity.pairCode}
     />
   );
 }

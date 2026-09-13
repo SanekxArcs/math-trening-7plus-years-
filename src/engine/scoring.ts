@@ -42,7 +42,6 @@ const COMBO_TIERS = [
  */
 const PENALTIES = [10, 25, 45, 70] as const;
 
-const VISUAL_HINT_FACTOR = 0.75;
 const FAST_FACTOR = 1.25;
 
 export function comboMultiplier(goodStreak: number): number {
@@ -101,11 +100,34 @@ export function applyAttempt(
   const previousPenalty = penaltyFor(state.badStreak);
 
   if (input.isCorrect) {
+    /**
+     * The picture hint is the expensive one: it scores nothing *and* ends the
+     * run, because being shown the answer laid out in dots is a different kind
+     * of help from having two wrong tiles removed. It still costs no points —
+     * a child who needs to see it should reach for it without being punished
+     * into a deficit — and a correct answer still clears a bad run.
+     */
+    if (input.usedVisualHint) {
+      return {
+        state: {
+          rawPoints: state.rawPoints,
+          goodStreak: 0,
+          badStreak: 0,
+          bestStreak: state.bestStreak,
+          correct: state.correct + 1,
+          wrong: state.wrong,
+        },
+        delta: 0,
+        multiplier: 1,
+        tierUp: false,
+        tierDown: false,
+      };
+    }
+
     const goodStreak = state.goodStreak + 1;
     const multiplier = comboMultiplier(goodStreak);
 
     let modifier = 1;
-    if (input.usedVisualHint) modifier *= VISUAL_HINT_FACTOR;
     if (input.fast) modifier *= FAST_FACTOR;
 
     // 50:50 costs the whole question's points but never the streak. Halving

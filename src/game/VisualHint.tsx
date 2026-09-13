@@ -32,11 +32,62 @@ export function VisualHint({ hint, mode, litGroups = null }: VisualHintProps) {
   const { groups, perGroup } = hint;
 
   // A hint that needs scrolling stops being a hint.
-  if (groups <= 0 || perGroup <= 0 || groups * perGroup > 144) {
+  if (groups < 0 || perGroup < 0 || groups * perGroup > 144) {
     return (
-      <p className="py-4 text-center text-sm text-muted-foreground">
-        {groups === 0 || perGroup === 0 ? t("nothingToCount") : t("tooManyToDraw")}
-      </p>
+      <p className="py-4 text-center text-sm text-muted-foreground">{t("tooManyToDraw")}</p>
+    );
+  }
+
+  /**
+   * Times zero is drawn, not refused.
+   *
+   * This used to bail out with "nothing to count — the answer is 0", which is a
+   * dead end exactly where a child most needs the picture: multiplying by zero
+   * is a rule they have to be shown, not told. With 0 and 1 enabled it is also
+   * 19 of the 100 multiplication facts, and since the picker favours unseen
+   * facts those come up early and often.
+   *
+   * "0 × 8" is eight empty boxes — eight groups of nothing. "8 × 0" is no boxes
+   * at all, which is the other half of the same idea.
+   */
+  if (perGroup === 0) {
+    return (
+      <div
+        className="flex flex-wrap items-start justify-center gap-2"
+        role="img"
+        aria-label={t("groupsOfNothing", { groups })}
+      >
+        {groups === 0 ? (
+          <p className="rounded-xl border-2 border-dashed border-primary/30 px-6 py-4 text-sm text-muted-foreground">
+            {t("noGroupsAtAll")}
+          </p>
+        ) : (
+          Array.from({ length: groups }, (_, groupIndex) => (
+            <motion.div
+              key={groupIndex}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: groupIndex * 0.05 }}
+              className="size-8 rounded-xl border-2 border-dashed border-primary/30"
+            />
+          ))
+        )}
+      </div>
+    );
+  }
+
+  // `groups === 0` with a non-zero group size: no groups at all, same idea.
+  if (groups === 0) {
+    return (
+      <div
+        className="flex justify-center"
+        role="img"
+        aria-label={t("noGroupsAtAll")}
+      >
+        <p className="rounded-xl border-2 border-dashed border-primary/30 px-6 py-4 text-sm text-muted-foreground">
+          {t("noGroupsAtAll")}
+        </p>
+      </div>
     );
   }
 

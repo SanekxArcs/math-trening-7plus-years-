@@ -11,6 +11,7 @@ import { Numpad } from "./Numpad";
 import { OptionGrid } from "./OptionGrid";
 import { TimerBar } from "./TimerBar";
 import { HintPanel } from "./HintPanel";
+import { PairCodeBadge } from "./PairCodeBadge";
 import { celebrateCombo, celebrateWin } from "./celebrate";
 import { playSound } from "./sound";
 import { useGame, type AttemptRecord, type StatsSource } from "./useGame";
@@ -25,6 +26,8 @@ export interface GameScreenProps {
   syncStatus?: SyncStatus | null;
   /** What the child already knows, for adaptive question selection. */
   getStats?: StatsSource;
+  /** Shown in a floating badge so a parent can read it without signing in. */
+  pairCode?: string | undefined;
 }
 
 /**
@@ -32,7 +35,13 @@ export interface GameScreenProps {
  * knows nothing about Dexie, Convex or whether a backend exists at all. That is
  * what lets the same component run local-only, synced, and under test.
  */
-export function GameScreen({ settings, onRecord, syncStatus, getStats }: GameScreenProps) {
+export function GameScreen({
+  settings,
+  onRecord,
+  syncStatus,
+  getStats,
+  pairCode,
+}: GameScreenProps) {
   const { t } = useI18n();
   const [hintOpen, setHintOpen] = useState(false);
 
@@ -84,7 +93,7 @@ export function GameScreen({ settings, onRecord, syncStatus, getStats }: GameScr
   };
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col gap-5 px-4 py-5">
+    <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col gap-5 px-4 pb-16 pt-5">
       <header className="flex items-center justify-between gap-3">
         <div className="flex items-baseline gap-2">
           <motion.span
@@ -218,6 +227,11 @@ export function GameScreen({ settings, onRecord, syncStatus, getStats }: GameScr
           >
             <Eye className="size-5" aria-hidden />
             {hintOpen ? t("hideHint") : t("showHint")}
+            {!hintOpen && (
+              <span className="rounded-md bg-black/5 px-1.5 py-0.5 text-xs font-bold">
+                {t("hintCost")}
+              </span>
+            )}
           </button>
         )}
       </section>
@@ -277,6 +291,8 @@ export function GameScreen({ settings, onRecord, syncStatus, getStats }: GameScr
           </motion.div>
         )}
       </AnimatePresence>
+
+      {pairCode && <PairCodeBadge pairCode={pairCode} />}
     </main>
   );
 }

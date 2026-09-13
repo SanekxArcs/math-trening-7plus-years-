@@ -97,12 +97,24 @@ Consecutive correct answers raise a multiplier:
 
 Awarded points = `round(base * multiplier * modifiers)`.
 
-Modifiers: answered in under half the timer `x1.25`; visual hint used `x0.75`.
+Modifier: answered in under half the timer, `x1.25`.
+
+The two lifelines cost different things, and neither ever takes points away:
+
+| Lifeline | Points for that question | Streak |
+| --- | --- | --- |
+| 50:50 | none | survives |
+| Picture hint | none | ends |
 
 **50:50 scores nothing at all** — not half, nothing — but the answer still counts
-as correct and the streak survives. That makes the lifeline a real decision
-rather than a small tax: keep the run alive, or score. A child who needs the help
-is never knocked back to the start of their combo for taking it.
+and the run continues. That makes it a real decision rather than a small tax:
+keep the combo alive, or score.
+
+**The picture hint is the expensive one**: it also ends the run, because being
+shown the answer laid out in dots is a different kind of help from having two
+wrong tiles removed. Neither deducts points — a child who needs to see it should
+reach for it without being pushed into a deficit — and either way a correct
+answer still clears a bad run.
 
 ### 4.3 Bad combo
 
@@ -146,6 +158,11 @@ is kept as the visual, now driven by points instead of raw counts.
   dividend while the answer is the size of one group.
 - Groups render as five-frames — 9 shows as 5+4 — which is how a child is
   taught to count them.
+- Multiplying by zero is **drawn, not refused**: "0 × 8" is eight empty boxes,
+  "8 × 0" is no boxes at all. It used to bail out with "nothing to count", which
+  is a dead end exactly where the picture is most needed — and with 0 and 1
+  enabled that is 19 of the 100 multiplication facts, which the picker reaches
+  early because they start out unseen.
 
 ## 4.6 Adaptive practice
 
