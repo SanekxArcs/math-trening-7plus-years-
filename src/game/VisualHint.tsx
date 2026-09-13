@@ -14,6 +14,8 @@ export function nextHintMode(mode: HintMode): HintMode {
 interface VisualHintProps {
   hint: HintModel;
   mode: HintMode;
+  /** How many groups have been counted so far; null when not counting. */
+  litGroups?: number | null;
 }
 
 /**
@@ -25,7 +27,7 @@ interface VisualHintProps {
  * layout reshuffled itself on every new question, and on multiplication it was
  * called twice per question and skipped a mode each time.
  */
-export function VisualHint({ hint, mode }: VisualHintProps) {
+export function VisualHint({ hint, mode, litGroups = null }: VisualHintProps) {
   const { t } = useI18n();
   const { groups, perGroup } = hint;
 
@@ -42,14 +44,27 @@ export function VisualHint({ hint, mode }: VisualHintProps) {
     <div
       className="flex flex-wrap items-start justify-center gap-2"
       role="img"
-      aria-label={t("groupsOf", { groups, perGroup })}
+      aria-label={
+        litGroups === null
+          ? t("groupsOf", { groups, perGroup })
+          : t("runningTotal", { total: litGroups * perGroup })
+      }
     >
       {Array.from({ length: groups }, (_, groupIndex) => (
         <motion.div
           key={groupIndex}
           initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: groupIndex * 0.05 }}
+          animate={{
+            // While counting, groups not yet reached recede rather than vanish:
+            // the child still needs to see how many are left to go.
+            opacity: litGroups === null || groupIndex < litGroups ? 1 : 0.25,
+            scale: litGroups !== null && groupIndex === litGroups - 1 ? 1.08 : 1,
+          }}
+          transition={
+            litGroups === null
+              ? { delay: groupIndex * 0.05 }
+              : { type: "spring", stiffness: 300, damping: 20 }
+          }
           className={cn(
             "rounded-xl border-2 border-primary/20 bg-card p-2 shadow-sm",
             mode === "boxes" && "grid gap-1",

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Eye, RefreshCw, Settings2, Trophy } from "lucide-react";
+import { Eye, Settings2, Trophy } from "lucide-react";
 import { Link } from "react-router-dom";
 import { displayPoints } from "@/engine";
 import { cn } from "@/lib/utils";
@@ -10,7 +10,7 @@ import { HalfHalfButton } from "./HalfHalfButton";
 import { Numpad } from "./Numpad";
 import { OptionGrid } from "./OptionGrid";
 import { TimerBar } from "./TimerBar";
-import { VisualHint, nextHintMode, type HintMode } from "./VisualHint";
+import { HintPanel } from "./HintPanel";
 import { celebrateCombo, celebrateWin } from "./celebrate";
 import { playSound } from "./sound";
 import { useGame, type AttemptRecord } from "./useGame";
@@ -32,7 +32,6 @@ export interface GameScreenProps {
  */
 export function GameScreen({ settings, onRecord, syncStatus }: GameScreenProps) {
   const { t } = useI18n();
-  const [hintMode, setHintMode] = useState<HintMode>("boxes");
   const [hintOpen, setHintOpen] = useState(false);
 
   const onAttempt = useCallback(
@@ -225,17 +224,9 @@ export function GameScreen({ settings, onRecord, syncStatus }: GameScreenProps) 
             exit={{ opacity: 0, height: 0 }}
             className="overflow-hidden rounded-[--radius-lg] bg-muted/40 p-4"
           >
-            <VisualHint hint={problem.hint} mode={hintMode} />
-            <div className="mt-3 flex justify-center">
-              <button
-                type="button"
-                onClick={() => setHintMode(nextHintMode)}
-                className="flex items-center gap-2 rounded-full bg-card px-4 py-2 text-xs font-black uppercase tracking-widest text-muted-foreground shadow-sm focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
-              >
-                <RefreshCw className="size-3.5" aria-hidden />
-                {t("changeView")}
-              </button>
-            </div>
+            {/* Keyed per question: a new problem gets a fresh panel rather than
+                inheriting a half-finished count from the previous one. */}
+            <HintPanel key={state.questionId} hint={problem.hint} answer={problem.answer} />
           </motion.section>
         )}
       </AnimatePresence>

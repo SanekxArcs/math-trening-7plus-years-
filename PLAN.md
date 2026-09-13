@@ -97,8 +97,12 @@ Consecutive correct answers raise a multiplier:
 
 Awarded points = `round(base * multiplier * modifiers)`.
 
-Modifiers: answered in under half the timer `x1.25`; 50:50 used `x0.5`; visual
-hint used `x0.75`.
+Modifiers: answered in under half the timer `x1.25`; visual hint used `x0.75`.
+
+**50:50 scores nothing at all** — not half, nothing — but the answer still counts
+as correct and the streak survives. That makes the lifeline a real decision
+rather than a small tax: keep the run alive, or score. A child who needs the help
+is never knocked back to the start of their combo for taking it.
 
 ### 4.3 Bad combo
 
@@ -130,13 +134,18 @@ is kept as the visual, now driven by points instead of raw counts.
 
 - **50:50** — removes half the wrong options (1 of 2 in Easy, 2 of 4, 3 of 6;
   disabled in Expert). Usable once per cooldown, cooldown length set by the
-  parent, default 30s, with a visible countdown ring on the button.
+  parent, default 30s, with a visible countdown ring on the button. Scores no
+  points, keeps the streak.
 - **Visual hint** — the box/line grouping from the old version, rebuilt so that
   *rendering* and *changing view mode* are separate functions. Mode changes only
   when the child asks for it, never on question change.
-- Animated counting is designed for but not built in this pass: `VisualHint`
-  takes a `mode` prop and renders from a declarative group model, so an animated
-  mode drops in later without touching the game loop.
+- **Counting together** steps through the picture one group per beat with a
+  running total, so the child sees the skip count (4, 8, 12) rather than just
+  the finished arrangement. Offered for multiplication only: a division draws
+  the same picture the other way round, so counting the dots would reach the
+  dividend while the answer is the size of one group.
+- Groups render as five-frames — 9 shows as 5+4 — which is how a child is
+  taught to count them.
 
 ## 5. Data model (Convex)
 
@@ -223,13 +232,13 @@ answers actually given, the full attempt log, and a settings form that writes
 through to the child's device live. Built on shadcn primitives; both chart
 series steps were run through the dataviz validator against their own surface.
 
-**Phase 6 — Hints. Mostly done.** 50:50 with a cooldown ring and the rebuilt
-visual hint are in place; groups render as five-frames (9 as 5+4) rather than
-wrapping arbitrarily. Outstanding: the animated counting mode.
+**Phase 6 — Hints. Done.** 50:50 with a cooldown ring, the rebuilt visual hint
+in three layouts, five-frame grouping, and the animated count-together for
+multiplication.
 
-**Phase 7 — Polish.** i18n (pl/en/uk) with typed keys — the old translations
-still need porting; reduced-motion is handled, keyboard and screen-reader passes
-and a Lighthouse PWA check are not.
+**Phase 7 — Polish. In progress.** i18n (pl/en/uk) with typed keys is done, as
+is reduced-motion. Outstanding: a keyboard and screen-reader pass, and a
+Lighthouse PWA check.
 
 ## 9. Decisions still open
 

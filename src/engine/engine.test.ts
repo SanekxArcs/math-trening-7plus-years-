@@ -135,6 +135,33 @@ describe("generateProblem", () => {
     }
   });
 
+  it("only attaches a picture hint to multiplication and division", () => {
+    // "3 groups of 4" explains a product. For 8 + 4 it would just restate the
+    // question, so the hint button must not appear there at all.
+    const rng = seededRng(101);
+    const config = settings({ ops: ALL_OPS, includeZeroOne: true });
+
+    for (let i = 0; i < 5000; i++) {
+      const p = generateProblem(config, rng);
+      if (p.op === "add" || p.op === "sub") {
+        expect(p.hint, p.prompt).toBeNull();
+      } else if (p.op === "mul") {
+        // For a product the picture totals the answer: 3 groups of 4 is 12.
+        expect(p.hint, p.prompt).not.toBeNull();
+        expect(p.hint!.groups * p.hint!.perGroup).toBe(p.answer);
+        expect(p.hint!.perGroup).toBe(p.a);
+        expect(p.hint!.groups).toBe(p.b);
+      } else {
+        // For a division the picture totals the *dividend*, and the answer is
+        // the size of one group: 28 ÷ 7 draws 7 groups of 4.
+        expect(p.hint, p.prompt).not.toBeNull();
+        expect(p.hint!.groups * p.hint!.perGroup).toBe(p.a);
+        expect(p.hint!.perGroup).toBe(p.answer);
+        expect(p.hint!.groups).toBe(p.b);
+      }
+    }
+  });
+
   it("survives a limit below the operand floor instead of throwing", () => {
     const rng = seededRng(31);
     const config = settings({ ops: ALL_OPS, limit1: 1, limit2: -5 });
@@ -340,10 +367,38 @@ describe("applyAttempt", () => {
     expect(last.tierUp).toBe(true);
   });
 
-  it("halves points for 50:50 and discounts the visual hint", () => {
-    expect(applyAttempt(INITIAL_SCORE, { ...correct, usedHalfHalf: true }).delta).toBe(5);
+  it("discounts the visual hint and rewards a fast answer", () => {
     expect(applyAttempt(INITIAL_SCORE, { ...correct, usedVisualHint: true }).delta).toBe(8);
     expect(applyAttempt(INITIAL_SCORE, { ...correct, fast: true }).delta).toBe(13);
+  });
+
+  it("scores nothing for a 50:50 answer but keeps the streak alive", () => {
+    let state = INITIAL_SCORE;
+    for (let i = 0; i < 4; i++) state = applyAttempt(state, correct).state;
+    expect(state.goodStreak).toBe(4);
+    expect(state.rawPoints).toBe(40);
+
+    const lifeline = applyAttempt(state, { ...correct, usedHalfHalf: true });
+    expect(lifeline.delta).toBe(0);
+    expect(lifeline.state.rawPoints).toBe(40);
+    // The run continues — and this answer is what carries them to the x2 tier.
+    expect(lifeline.state.goodStreak).toBe(5);
+    expect(lifeline.state.correct).toBe(5);
+    expect(lifeline.multiplier).toBe(2);
+    expect(lifeline.tierUp).toBe(true);
+
+    // The next unaided answer is worth the higher multiplier.
+    expect(applyAttempt(lifeline.state, correct).delta).toBe(20);
+  });
+
+  it("ignores other bonuses when 50:50 was used", () => {
+    const result = applyAttempt(INITIAL_SCORE, {
+      ...correct,
+      usedHalfHalf: true,
+      usedVisualHint: true,
+      fast: true,
+    });
+    expect(result.delta).toBe(0);
   });
 
   it("scales with difficulty", () => {

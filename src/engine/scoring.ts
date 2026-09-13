@@ -42,7 +42,6 @@ const COMBO_TIERS = [
  */
 const PENALTIES = [10, 25, 45, 70] as const;
 
-const HALF_HALF_FACTOR = 0.5;
 const VISUAL_HINT_FACTOR = 0.75;
 const FAST_FACTOR = 1.25;
 
@@ -106,11 +105,17 @@ export function applyAttempt(
     const multiplier = comboMultiplier(goodStreak);
 
     let modifier = 1;
-    if (input.usedHalfHalf) modifier *= HALF_HALF_FACTOR;
     if (input.usedVisualHint) modifier *= VISUAL_HINT_FACTOR;
     if (input.fast) modifier *= FAST_FACTOR;
 
-    const delta = Math.round(BASE_POINTS[input.difficulty] * multiplier * modifier);
+    // 50:50 costs the whole question's points but never the streak. Halving
+    // them made the lifeline a small tax on a good run; zeroing them makes it a
+    // real choice — keep the combo alive, or score. Either way the answer still
+    // counts as correct, so a child who needs the help is not knocked back to
+    // the start of their run for using it.
+    const delta = input.usedHalfHalf
+      ? 0
+      : Math.round(BASE_POINTS[input.difficulty] * multiplier * modifier);
 
     return {
       state: {
