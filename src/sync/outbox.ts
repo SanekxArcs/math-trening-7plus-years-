@@ -40,7 +40,7 @@ export async function pendingCount(): Promise<number> {
 export async function flush(
   client: ConvexReactClient,
   identity: DeviceIdentity,
-): Promise<{ sent: number; remaining: number }> {
+): Promise<{ sent: number; remaining: number; unlinked: boolean }> {
   let sent = 0;
 
   for (;;) {
@@ -53,11 +53,18 @@ export async function flush(
     if (rows.length === 0) break;
 
     const records = rows.map(({ synced: _synced, ...record }) => record);
-    await client.mutation(api.attempts.record, {
+    const result = await client.mutation(api.attempts.record, {
       profileId: identity.profileId as Id<"profiles">,
       deviceToken: identity.deviceToken,
       records,
     });
+
+    // The profile behind these credentials is gone. Leave the rows unsynced and
+    // stop: retrying a batch the server will keep refusing, every thirty
+    // seconds forever, helps nobody.
+    if (result.unlinked) {
+      return { sent, remaining: await pendingCount(), unlinked: true };
+    }
 
     await db.outbox.bulkPut(rows.map((row) => ({ ...row, synced: 1 as const })));
     sent += rows.length;
@@ -66,7 +73,7 @@ export async function flush(
   }
 
   await prune();
-  return { sent, remaining: await pendingCount() };
+  return { sent, remaining: await pendingCount(), unlinked: false };
 }
 
 /** Keeps the local mirror from growing without bound on a long-lived tablet. */

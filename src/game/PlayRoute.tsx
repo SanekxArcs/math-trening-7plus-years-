@@ -29,8 +29,8 @@ function LocalGame() {
 }
 
 function SyncedGame() {
-  const { identity, claim } = useDeviceIdentity();
-  const { settings, locale } = useSyncedSettings(identity);
+  const { identity, claim, unlink } = useDeviceIdentity();
+  const { settings, locale, unlinked } = useSyncedSettings(identity);
   const { status, record } = useOutboxSync(identity);
   const { getStats, recordFacts } = useFactStats();
   const { setLang } = useI18n();
@@ -50,6 +50,15 @@ function SyncedGame() {
   // the parent is already signed in — which needs the code. So it gets its own
   // step, once, at the only moment the parent is certainly present.
   const [codeToConfirm, setCodeToConfirm] = useState<string | null>(null);
+
+  /**
+   * The profile these credentials belong to is gone — deleted from the
+   * dashboard, or a deployment reset. Drop them and start over rather than
+   * sitting in an error the user cannot clear without wiping site data.
+   */
+  useEffect(() => {
+    if (unlinked || status.unlinked) void unlink();
+  }, [unlinked, status.unlinked, unlink]);
 
   // The profile's locale is parent-set, so on the child's own device it wins
   // over whatever this browser happened to guess.

@@ -29,6 +29,24 @@ export async function requireParent(
   return profile;
 }
 
+/**
+ * Non-throwing device check.
+ *
+ * A device can legitimately hold credentials for a profile that no longer
+ * exists — deleted from the dashboard, or a deployment wiped between sessions.
+ * Throwing from a subscribed query in that case takes down the whole app, so
+ * reads report the situation instead and let the client re-enrol.
+ */
+export async function checkDevice(
+  ctx: QueryCtx | MutationCtx,
+  profileId: Id<"profiles">,
+  deviceToken: string,
+): Promise<Doc<"profiles"> | null> {
+  const profile = await ctx.db.get(profileId);
+  if (!profile) return null;
+  return safeEqual(profile.deviceTokenHash, sha256(deviceToken)) ? profile : null;
+}
+
 /** The kid's device proves itself with a secret issued when the profile was made. */
 export async function requireDevice(
   ctx: QueryCtx | MutationCtx,

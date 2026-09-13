@@ -37,14 +37,27 @@ export const backfill = internalMutation({
   },
 });
 
+/**
+ * Deletes a profile and everything attached to it.
+ *
+ * `expectName` is required and must match: purging by pairing code alone is one
+ * transposed character away from deleting a real child's history, and that has
+ * already happened once.
+ */
 export const purgeProfile = internalMutation({
-  args: { pairCode: v.string() },
-  handler: async (ctx, { pairCode }) => {
+  args: { pairCode: v.string(), expectName: v.string() },
+  handler: async (ctx, { pairCode, expectName }) => {
     const profile = await ctx.db
       .query("profiles")
       .withIndex("by_pairCode", (q) => q.eq("pairCode", pairCode.toUpperCase()))
       .unique();
     if (!profile) return { deleted: false, reason: "no such pairing code" };
+    if (profile.name !== expectName) {
+      return {
+        deleted: false,
+        reason: `pairing code ${pairCode} belongs to "${profile.name}", not "${expectName}"`,
+      };
+    }
 
     const attempts = await ctx.db
       .query("attempts")

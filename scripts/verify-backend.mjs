@@ -44,11 +44,14 @@ async function expectRejection(label, promise) {
   }
 }
 
-const attempt = (clientId, over) => ({
+const attempt = (clientId, over = {}) => ({
   clientId,
   op: "mul",
   a: 7,
   b: 8,
+  // Canonical table cell; for multiplication it matches the displayed operands.
+  factA: over.a ?? 7,
+  factB: over.b ?? 8,
   prompt: "7 × 8",
   answer: 56,
   given: 56,
@@ -102,14 +105,24 @@ const mixed = await client.mutation(anyApi.attempts.record, {
 });
 check("a partially-seen batch inserts only the new row", mixed.inserted === 1, JSON.stringify(mixed));
 
-await expectRejection(
-  "rejects a bad device token",
-  client.mutation(anyApi.attempts.record, {
-    profileId,
-    deviceToken: "not-the-token",
-    records: [attempt("a-5")],
-  }),
+const badToken = await client.mutation(anyApi.attempts.record, {
+  profileId,
+  deviceToken: "not-the-token",
+  records: [attempt("a-5")],
+});
+check(
+  "a bad device token stores nothing and reports unlinked",
+  badToken.unlinked === true && badToken.inserted === 0,
+  JSON.stringify(badToken),
 );
+
+const badRead = await client.query(anyApi.attempts.settingsForDevice, {
+  profileId,
+  deviceToken: "not-the-token",
+});
+// Reported rather than thrown: this query is subscribed for the life of the
+// app, so throwing would take down a game a child is in the middle of.
+check("a bad device token reads as unlinked", badRead.status === "unlinked", JSON.stringify(badRead));
 
 console.log("\nParent login");
 await expectRejection(
@@ -176,7 +189,9 @@ await client.mutation(anyApi.parent.updateSettings, {
   token: session.token,
   patch: { difficulty: "hard", limit1: 999, timerSec: 1 },
 });
-const deviceView = await client.query(anyApi.attempts.settingsForDevice, { profileId, deviceToken });
+const view = await client.query(anyApi.attempts.settingsForDevice, { profileId, deviceToken });
+check("a linked device reads as ok", view.status === "ok", JSON.stringify(view.status));
+const deviceView = view.settings;
 check("parent change reaches the device", deviceView.difficulty === "hard", deviceView.difficulty);
 check("out-of-range limit is clamped server-side", deviceView.limit1 === 100, String(deviceView.limit1));
 check("out-of-range timer is clamped server-side", deviceView.timerSec === 3, String(deviceView.timerSec));
@@ -208,15 +223,15 @@ try {
   const cli = fileURLToPath(new URL("../node_modules/convex/bin/main.js", import.meta.url));
   execFileSync(
     process.execPath,
-    [cli, "run", "testing:purgeProfile", JSON.stringify({ pairCode })],
+    [cli, "run", "testing:purgeProfile", JSON.stringify({ pairCode, expectName: "Verify Run" })],
     { stdio: "pipe", cwd: root },
   );
-  check("removes the test profile", true);
+  check("cleanup leaves nothing behind", true);
 } catch (error) {
   check(
-    "removes the test profile",
+    "cleanup leaves nothing behind",
     false,
-    `run manually: npx convex run testing:purgeProfile '{"pairCode":"${pairCode}"}' — ${error}`,
+    `run manually: npx convex run testing:purgeProfile '{"pairCode":"${pairCode}","expectName":"Verify Run"}' — ${error}`,
   );
 }
 

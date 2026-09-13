@@ -6,6 +6,7 @@ import { convex } from "@/lib/convex";
 import { DEFAULT_SETTINGS, type GameSettings } from "@/engine";
 import type { AttemptRecord } from "@/game/useGame";
 import {
+  clearIdentity,
   getIdentity,
   getSettingsMirror,
   saveIdentity,
@@ -19,6 +20,18 @@ export type IdentityState = DeviceIdentity | null | undefined;
 
 export function useDeviceIdentity() {
   const [identity, setIdentity] = useState<IdentityState>(undefined);
+
+  /**
+   * Forget this device's credentials and go back to setup.
+   *
+   * Reached when the server says the profile behind them is gone — deleted
+   * from the dashboard, or a deployment reset. Without this the app sits in a
+   * permanent error state that clearing site data is the only way out of.
+   */
+  const unlink = useCallback(async () => {
+    await clearIdentity();
+    setIdentity(null);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -53,7 +66,7 @@ export function useDeviceIdentity() {
     [],
   );
 
-  return { identity, claim };
+  return { identity, claim, unlink };
 }
 
 /**
@@ -67,6 +80,8 @@ export function useDeviceIdentity() {
 export function useSyncedSettings(identity: IdentityState): {
   settings: GameSettings;
   locale: string | null;
+  /** The server no longer recognises this device's profile. */
+  unlinked: boolean;
 } {
   const [settings, setSettings] = useState<GameSettings>(DEFAULT_SETTINGS);
   const [locale, setLocale] = useState<string | null>(null);
@@ -85,7 +100,7 @@ export function useSyncedSettings(identity: IdentityState): {
   );
 
   useEffect(() => {
-    if (!remote) return;
+    if (!remote || remote.status !== "ok" || !remote.settings) return;
     const {
       _id: _ignoredId,
       _creationTime: _ignoredTime,
@@ -94,7 +109,7 @@ export function useSyncedSettings(identity: IdentityState): {
       updatedBy: _ignoredBy,
       locale: remoteLocale,
       ...fields
-    } = remote;
+    } = remote.settings;
     setLocale(remoteLocale);
 
     // Replace wholesale rather than merge, so a setting the parent turned off
@@ -109,7 +124,7 @@ export function useSyncedSettings(identity: IdentityState): {
     void saveSettingsMirror(next);
   }, [remote]);
 
-  return { settings, locale };
+  return { settings, locale, unlinked: remote?.status === "unlinked" };
 }
 
 export interface SyncStatus {
@@ -117,6 +132,8 @@ export interface SyncStatus {
   online: boolean;
   syncing: boolean;
   lastError: string | null;
+  /** The server does not recognise this device any more. */
+  unlinked: boolean;
 }
 
 /**
@@ -129,6 +146,7 @@ export function useOutboxSync(identity: IdentityState) {
     online: typeof navigator === "undefined" ? true : navigator.onLine,
     syncing: false,
     lastError: null,
+    unlinked: false,
   });
 
   // A single in-flight drain. Without this, a burst of answers plus an `online`
@@ -142,8 +160,14 @@ export function useOutboxSync(identity: IdentityState) {
     draining.current = true;
     setStatus((s) => ({ ...s, syncing: true }));
     try {
-      const { remaining } = await flush(convex, identity);
-      setStatus((s) => ({ ...s, pending: remaining, syncing: false, lastError: null }));
+      const { remaining, unlinked } = await flush(convex, identity);
+      setStatus((s) => ({
+        ...s,
+        pending: remaining,
+        syncing: false,
+        lastError: null,
+        unlinked,
+      }));
     } catch (error) {
       setStatus((s) => ({
         ...s,

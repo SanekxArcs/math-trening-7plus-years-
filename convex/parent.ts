@@ -73,7 +73,9 @@ export const overview = query({
       op.total++;
       if (attempt.isCorrect) op.correct++;
 
-      const key = `${attempt.op}:${attempt.a}:${attempt.b}`;
+      // The canonical cell, so a division lands with its multiplication rather
+      // than under its dividend. Older rows predate these fields.
+      const key = `${attempt.op}:${attempt.factA ?? attempt.a}:${attempt.factB ?? attempt.b}`;
       const fact = (byFact[key] ??= { correct: 0, total: 0, wrongAnswers: [] });
       fact.total++;
       if (attempt.isCorrect) fact.correct++;

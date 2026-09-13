@@ -5,17 +5,20 @@ import { ConvexProvider } from "convex/react";
 import App from "./App.tsx";
 import { convex } from "./lib/convex.ts";
 import { I18nProvider } from "./i18n/useI18n.tsx";
+import { ErrorBoundary } from "./ErrorBoundary.tsx";
 import "./index.css";
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Root element #root is missing from index.html");
 
 const tree = (
-  <I18nProvider>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
-  </I18nProvider>
+  <ErrorBoundary>
+    <I18nProvider>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </I18nProvider>
+  </ErrorBoundary>
 );
 
 createRoot(root).render(

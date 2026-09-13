@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { requireDevice } from "./auth";
+import { checkDevice } from "./auth";
 import { EMPTY_FACT, factId, updateFact } from "../src/engine/mastery.ts";
 import type { Difficulty, Op } from "../src/engine/types.ts";
 import type { MutationCtx } from "./_generated/server";
@@ -43,7 +43,12 @@ export const record = mutation({
     records: v.array(v.object(attemptFields)),
   },
   handler: async (ctx, { profileId, deviceToken, records }) => {
-    await requireDevice(ctx, profileId, deviceToken);
+    // Same reasoning as the query: a device whose profile has gone should be
+    // told so once, rather than retrying the same rejected batch every 30
+    // seconds for the life of the install.
+    if (!(await checkDevice(ctx, profileId, deviceToken))) {
+      return { accepted: records.length, inserted: 0, unlinked: true as const };
+    }
 
     let inserted = 0;
     for (const record of records) {
@@ -60,7 +65,7 @@ export const record = mutation({
       inserted++;
     }
 
-    return { accepted: records.length, inserted };
+    return { accepted: records.length, inserted, unlinked: false as const };
   },
 });
 
@@ -144,13 +149,22 @@ async function foldIntoFact(
 export const settingsForDevice = query({
   args: { profileId: v.id("profiles"), deviceToken: v.string() },
   handler: async (ctx, { profileId, deviceToken }) => {
-    const profile = await requireDevice(ctx, profileId, deviceToken);
+    const profile = await checkDevice(ctx, profileId, deviceToken);
+    // Reported, not thrown: this query is subscribed for the life of the app,
+    // and a profile deleted from the dashboard would otherwise crash the game
+    // a child is in the middle of.
+    if (!profile) return { status: "unlinked" as const };
+
     const settings = await ctx.db
       .query("settings")
       .withIndex("by_profile", (q) => q.eq("profileId", profileId))
       .unique();
+
     // The locale rides along on the same subscription, so a language change
     // made by the parent reaches the tablet without a second round trip.
-    return settings ? { ...settings, locale: profile.locale } : null;
+    return {
+      status: "ok" as const,
+      settings: settings ? { ...settings, locale: profile.locale } : null,
+    };
   },
 });
