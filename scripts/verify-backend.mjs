@@ -194,6 +194,31 @@ await expectRejection(
   client.query(anyApi.parent.overview, { token: session.token }),
 );
 
+// Clean up after ourselves. Repeated runs would otherwise fill the deployment
+// with throwaway profiles that are indistinguishable, from the dashboard, from
+// a real child.
+console.log("\nCleanup");
+try {
+  const { execFileSync } = await import("node:child_process");
+  const { fileURLToPath } = await import("node:url");
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  // Invoke the CLI's entry point with node rather than going through `npx`:
+  // spawning a .cmd shim on Windows needs a shell, and a shell needs quoting
+  // rules that differ per platform.
+  const cli = fileURLToPath(new URL("../node_modules/convex/bin/main.js", import.meta.url));
+  execFileSync(
+    process.execPath,
+    [cli, "run", "testing:purgeProfile", JSON.stringify({ pairCode })],
+    { stdio: "pipe", cwd: root },
+  );
+  check("removes the test profile", true);
+} catch (error) {
+  check(
+    "removes the test profile",
+    false,
+    `run manually: npx convex run testing:purgeProfile '{"pairCode":"${pairCode}"}' — ${error}`,
+  );
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
-console.log(`(test profile left behind, pairing code ${pairCode})`);
 process.exit(failed === 0 ? 0 : 1);

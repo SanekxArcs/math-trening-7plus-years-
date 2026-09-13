@@ -14,6 +14,7 @@ import type * as parent from "../parent.js";
 import type * as profiles from "../profiles.js";
 import type * as secure from "../secure.js";
 import type * as sha256 from "../sha256.js";
+import type * as testing from "../testing.js";
 
 import type {
   ApiFromModules,
@@ -28,6 +29,7 @@ declare const fullApi: ApiFromModules<{
   profiles: typeof profiles;
   secure: typeof secure;
   sha256: typeof sha256;
+  testing: typeof testing;
 }>;
 
 /**
