@@ -1,0 +1,207 @@
+import { useQuery } from "convex/react";
+import { Link } from "react-router-dom";
+import { Gamepad2, KeyRound, LogOut } from "lucide-react";
+import { api } from "@convex/_generated/api";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DEFAULT_SETTINGS, type GameSettings } from "@/engine";
+import { AccuracyByOperation, EmptyNote, OP_LABELS, PracticeTrend } from "./charts";
+import { HistoryTable } from "./HistoryTable";
+import { SettingsForm } from "./SettingsForm";
+import type { ParentSession } from "./useParentSession";
+
+interface DashboardProps {
+  session: ParentSession;
+  onLogout: () => void;
+}
+
+export function Dashboard({ session, onLogout }: DashboardProps) {
+  const data = useQuery(api.parent.overview, { token: session.token });
+
+  if (data === undefined) {
+    return (
+      <main className="mx-auto w-full max-w-3xl px-5 py-8">
+        <EmptyNote>Loading…</EmptyNote>
+      </main>
+    );
+  }
+
+  const { profile, stats } = data;
+  const settings: GameSettings = data.settings
+    ? {
+        ops: data.settings.ops,
+        limit1: data.settings.limit1,
+        limit2: data.settings.limit2,
+        includeZeroOne: data.settings.includeZeroOne,
+        difficulty: data.settings.difficulty,
+        timerEnabled: data.settings.timerEnabled,
+        timerSec: data.settings.timerSec,
+        goalEnabled: data.settings.goalEnabled,
+        goalTarget: data.settings.goalTarget,
+        halfHalfEnabled: data.settings.halfHalfEnabled,
+        halfHalfCooldownSec: data.settings.halfHalfCooldownSec,
+        visualHintEnabled: data.settings.visualHintEnabled,
+        soundEnabled: data.settings.soundEnabled,
+      }
+    : DEFAULT_SETTINGS;
+
+  return (
+    <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6 sm:px-6">
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="text-4xl" aria-hidden>
+            {profile.avatarEmoji}
+          </span>
+          <div>
+            <h1 className="font-display text-2xl font-black leading-tight">{profile.name}</h1>
+            <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              <KeyRound className="size-3" aria-hidden />
+              {profile.pairCode}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          <Button asChild variant="outline" size="sm">
+            <Link to="/">
+              <Gamepad2 className="size-4" aria-hidden />
+              Game
+            </Link>
+          </Button>
+          <Button variant="ghost" size="sm" onClick={onLogout}>
+            <LogOut className="size-4" aria-hidden />
+            Sign out
+          </Button>
+        </div>
+      </header>
+
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <StatTile label="Accuracy" value={`${Math.round(stats.accuracy * 100)}%`} />
+        <StatTile label="Questions" value={String(stats.sampled)} />
+        <StatTile label="Best streak" value={String(stats.bestStreak)} />
+        <StatTile
+          label="Avg. time"
+          value={stats.averageMs === 0 ? "—" : `${(stats.averageMs / 1000).toFixed(1)}s`}
+        />
+      </section>
+
+      <Tabs defaultValue="progress">
+        <TabsList className="w-full">
+          <TabsTrigger value="progress" className="flex-1">
+            Progress
+          </TabsTrigger>
+          <TabsTrigger value="history" className="flex-1">
+            History
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="flex-1">
+            Settings
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="progress" className="space-y-4 pt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Practice, last 14 days</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <PracticeTrend daily={stats.daily} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Accuracy by operation</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <AccuracyByOperation byOperation={stats.byOperation} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Worth practising</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {stats.weakest.length === 0 ? (
+                <EmptyNote>No repeated mistakes yet — nothing to worry about.</EmptyNote>
+              ) : (
+                <ul className="space-y-2">
+                  {stats.weakest.map((entry) => {
+                    const [op, a, b] = entry.fact.split(":");
+                    const missed = entry.total - entry.correct;
+                    return (
+                      <li
+                        key={entry.fact}
+                        className="flex flex-wrap items-baseline justify-between gap-2 rounded-[--radius-sm] bg-muted/40 px-3 py-2"
+                      >
+                        <span className="font-display text-lg font-bold tabular-nums">
+                          {a} {symbolFor(op)} {b}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          missed {missed} of {entry.total}
+                          {entry.wrongAnswers.length > 0 && (
+                            <>
+                              {" · answered "}
+                              <span className="font-bold text-foreground tabular-nums">
+                                {[...new Set(entry.wrongAnswers)].slice(0, 3).join(", ")}
+                              </span>
+                            </>
+                          )}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="history" className="pt-4">
+          <Card>
+            <CardContent className="pt-6">
+              <HistoryTable token={session.token} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="settings" className="pt-4">
+          <Card>
+            <CardContent className="pt-6">
+              <SettingsForm token={session.token} settings={settings} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </main>
+  );
+}
+
+function StatTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[--radius-md] bg-card p-4 shadow-sm">
+      <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-1 font-display text-3xl font-black tabular-nums">{value}</p>
+    </div>
+  );
+}
+
+function symbolFor(op: string | undefined): string {
+  switch (op) {
+    case "add":
+      return "+";
+    case "sub":
+      return "−";
+    case "mul":
+      return "×";
+    case "div":
+      return "÷";
+    default:
+      return op ?? "";
+  }
+}
+
+export { OP_LABELS };

@@ -148,6 +148,26 @@ check(
   JSON.stringify(overview.stats.weakest),
 );
 
+// The batch is right, wrong, right, right — three correct but only two in a
+// row, so the longest streak is 2. (A count of correct answers would say 3;
+// that difference is the point of the assertion.)
+check(
+  "reports the longest run, not the total correct",
+  overview.stats.bestStreak === 2,
+  String(overview.stats.bestStreak),
+);
+check("returns a dense 14-day window", overview.stats.daily.length === 14);
+check(
+  "the window ends today and counts today's attempts",
+  overview.stats.daily.at(-1)?.day === new Date().toISOString().slice(0, 10) &&
+    overview.stats.daily.at(-1)?.total === 4,
+  JSON.stringify(overview.stats.daily.at(-1)),
+);
+check(
+  "days with no practice are present as zeroes, not missing",
+  overview.stats.daily.slice(0, 13).every((d) => d.total === 0),
+);
+
 const history = await client.query(anyApi.parent.history, { token: session.token, limit: 2 });
 check("history paginates", history.rows.length === 2 && history.nextBefore !== null);
 

@@ -128,6 +128,10 @@ export function GameScreen({ settings, onRecord, syncStatus }: GameScreenProps) 
         />
       )}
 
+      {/* The play area takes the leftover height and centres in it, so the
+          question sits under the child's eyeline on a tall tablet instead of
+          riding at the top with dead space below. */}
+      <div className="flex flex-1 flex-col justify-center gap-6">
       <section className="flex flex-col items-center justify-center py-4">
         <AnimatePresence mode="wait">
           <motion.h1
@@ -233,6 +237,8 @@ export function GameScreen({ settings, onRecord, syncStatus }: GameScreenProps) 
           </motion.section>
         )}
       </AnimatePresence>
+
+      </div>
 
       <AnimatePresence>
         {state.won && (

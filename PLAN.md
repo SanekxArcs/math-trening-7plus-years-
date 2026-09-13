@@ -217,12 +217,15 @@ offline starts, quiet sync badge.
 PIN hashing in a `"use node"` action, server-side clamps. Verified against the
 live deployment by `node scripts/verify-backend.mjs` — 26 checks.
 
-**Phase 5 — Dashboard. Next.** The Convex side is built and verified
-(`parent.overview`, `parent.history`, `parent.updateSettings`, `secure.parentLogin`);
-what remains is the React UI. `src/parent/ParentRoute.tsx` is still a placeholder.
+**Phase 5 — Dashboard. Done.** Pairing-code + PIN sign-in, stat tiles, a 14-day
+practice chart, accuracy by operation, the most-missed facts with the wrong
+answers actually given, the full attempt log, and a settings form that writes
+through to the child's device live. Built on shadcn primitives; both chart
+series steps were run through the dataviz validator against their own surface.
 
-**Phase 6 — Hints.** 50:50 with cooldown and the rebuilt visual hint are already
-in place from Phase 2. Outstanding: the animated counting mode.
+**Phase 6 — Hints. Mostly done.** 50:50 with a cooldown ring and the rebuilt
+visual hint are in place; groups render as five-frames (9 as 5+4) rather than
+wrapping arbitrarily. Outstanding: the animated counting mode.
 
 **Phase 7 — Polish.** i18n (pl/en/uk) with typed keys — the old translations
 still need porting; reduced-motion is handled, keyboard and screen-reader passes

@@ -41,6 +41,7 @@ export function VisualHint({ hint, mode }: VisualHintProps) {
   return (
     <div
       className="flex flex-wrap items-start justify-center gap-2"
+      role="img"
       aria-label={`${groups} groups of ${perGroup}`}
     >
       {Array.from({ length: groups }, (_, groupIndex) => (
@@ -50,11 +51,19 @@ export function VisualHint({ hint, mode }: VisualHintProps) {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: groupIndex * 0.05 }}
           className={cn(
-            "flex rounded-xl border-2 border-primary/20 bg-card p-2 shadow-sm",
-            mode === "boxes" && "max-w-[7.5rem] flex-wrap gap-1",
-            mode === "rows" && "w-12 flex-col gap-1",
-            mode === "columns" && "h-12 flex-row items-end gap-1",
+            "rounded-xl border-2 border-primary/20 bg-card p-2 shadow-sm",
+            mode === "boxes" && "grid gap-1",
+            mode === "rows" && "flex w-12 flex-col gap-1",
+            mode === "columns" && "flex h-12 flex-row items-end gap-1",
           )}
+          style={
+            mode === "boxes"
+              ? // Rows of five. A group of 7 shown as 6+1 is a worse picture of
+                // "seven" than 5+2, which is the five-frame a child is taught to
+                // count with.
+                { gridTemplateColumns: `repeat(${Math.min(perGroup, 5)}, minmax(0, 1fr))` }
+              : {}
+          }
         >
           {Array.from({ length: perGroup }, (_, markIndex) => (
             <motion.span

@@ -53,12 +53,21 @@ export const overview = query({
 
     const byOperation: Record<string, { correct: number; total: number }> = {};
     const byFact: Record<string, { correct: number; total: number; wrongAnswers: number[] }> = {};
+    const byDay: Record<string, { total: number; correct: number }> = {};
     let correct = 0;
     let totalMs = 0;
 
     for (const attempt of recent) {
       if (attempt.isCorrect) correct++;
       totalMs += attempt.ms;
+
+      // Local-date bucketing would need the parent's timezone; UTC days keep
+      // the query deterministic and cacheable, which matters more here than a
+      // late-evening session landing on the neighbouring day.
+      const day = new Date(attempt.createdAt).toISOString().slice(0, 10);
+      const bucket = (byDay[day] ??= { total: 0, correct: 0 });
+      bucket.total++;
+      if (attempt.isCorrect) bucket.correct++;
 
       const op = (byOperation[attempt.op] ??= { correct: 0, total: 0 });
       op.total++;
@@ -82,6 +91,16 @@ export const overview = query({
       .slice(0, 8)
       .map(([key, stats]) => ({ fact: key, ...stats }));
 
+    // A dense 14-day window: days with no practice must appear as gaps, because
+    // "they did nothing on Tuesday" is exactly what the parent is looking for.
+    const daily: { day: string; total: number; correct: number }[] = [];
+    const today = new Date(Date.now());
+    for (let back = 13; back >= 0; back--) {
+      const date = new Date(today.getTime() - back * 86_400_000);
+      const day = date.toISOString().slice(0, 10);
+      daily.push({ day, ...(byDay[day] ?? { total: 0, correct: 0 }) });
+    }
+
     return {
       profile: {
         id: profile._id,
@@ -96,8 +115,10 @@ export const overview = query({
         correct,
         accuracy: recent.length === 0 ? 0 : correct / recent.length,
         averageMs: recent.length === 0 ? 0 : Math.round(totalMs / recent.length),
+        bestStreak: longestStreak(recent),
         byOperation,
         weakest,
+        daily,
       },
     };
   },
@@ -162,6 +183,20 @@ export const updateSettings = mutation({
     });
   },
 });
+
+/**
+ * Longest run of correct answers in the sample. `recent` is newest-first, but a
+ * streak is symmetric, so direction does not matter.
+ */
+function longestStreak(recent: { isCorrect: boolean }[]): number {
+  let best = 0;
+  let run = 0;
+  for (const attempt of recent) {
+    run = attempt.isCorrect ? run + 1 : 0;
+    if (run > best) best = run;
+  }
+  return best;
+}
 
 /** Server-side clamps, so a hand-crafted request cannot set limit1 to -5. */
 const LIMITS = {

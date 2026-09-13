@@ -45,6 +45,13 @@
   --combo-foreground: oklch(0.3 0.08 60);
   --streak-bad: oklch(0.55 0.2 10);
 
+  /* Chart series. Single-series charts throughout, so there is no categorical
+     adjacency to clear; both steps were checked with the dataviz validator
+     against their own surface (light on #ffffff, dark on the dark card). */
+  --chart-series: #7d43dd;
+  --chart-grid: oklch(0.92 0.02 300);
+  --chart-empty: oklch(0.95 0.01 300);
+
   /* Per-option button hues, indexed 0..5 for up to six answer tiles */
   --option-0: oklch(0.7 0.15 240);
   --option-1: oklch(0.78 0.15 80);
@@ -85,6 +92,10 @@
   --combo: oklch(0.75 0.16 75);
   --combo-foreground: oklch(0.2 0.05 60);
   --streak-bad: oklch(0.58 0.19 10);
+
+  --chart-series: #9875ea;
+  --chart-grid: oklch(0.35 0.03 292);
+  --chart-empty: oklch(0.32 0.03 292);
 }
 
 @theme inline {
@@ -115,6 +126,10 @@
   --color-combo: var(--combo);
   --color-combo-foreground: var(--combo-foreground);
   --color-streak-bad: var(--streak-bad);
+
+  --color-chart-series: var(--chart-series);
+  --color-chart-grid: var(--chart-grid);
+  --color-chart-empty: var(--chart-empty);
 
   --radius-sm: calc(var(--radius) - 8px);
   --radius-md: calc(var(--radius) - 4px);
