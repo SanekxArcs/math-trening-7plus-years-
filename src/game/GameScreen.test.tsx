@@ -193,6 +193,43 @@ describe("GameScreen", () => {
     expect(within(header!).getByText("10")).toBeInTheDocument();
   });
 
+  it("offers the next level once the goal is reached, and plays it", async () => {
+    const user = userEvent.setup();
+    // Easy scores 5 a question, so one right answer finishes this goal.
+    const { container } = renderGame({
+      difficulty: "easy",
+      timerEnabled: false,
+      goalEnabled: true,
+      goalTarget: 5,
+    });
+
+    const answer = solveVisibleQuestion();
+    await user.click(screen.getByRole("button", { name: `Answer ${answer}` }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("10 points to win")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Play level 2/ }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    const header = container.querySelector("header");
+    expect(within(header!).getByText("Lv 2")).toBeInTheDocument();
+    // A new level starts from nothing — the points just banked do not carry.
+    expect(within(header!).getByText("0")).toBeInTheDocument();
+  });
+
+  it("does not move a child up for stopping early", async () => {
+    const user = userEvent.setup();
+    renderGame({ timerEnabled: false, goalEnabled: true, goalTarget: 500 });
+
+    await user.click(screen.getByRole("button", { name: "Pause the game" }));
+    await user.click(screen.getByRole("button", { name: /Finish for now/ }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("button", { name: "Play again" })).toBeInTheDocument();
+    expect(within(dialog).queryByText(/Play level/)).toBeNull();
+  });
+
   it("keeps the goal bar and points in step", async () => {
     const user = userEvent.setup();
     const { container } = renderGame({

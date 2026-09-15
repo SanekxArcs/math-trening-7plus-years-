@@ -7,11 +7,30 @@ function reducedMotion(): boolean {
   );
 }
 
+/**
+ * canvas-confetti draws onto a canvas without ever checking it got a context.
+ * Where there is none — a locked-down browser, a headless test — its animation
+ * loop throws on every frame for as long as the burst lasts. Asked once and
+ * remembered, because the answer cannot change within a page.
+ */
+let drawable: boolean | null = null;
+function canDraw(): boolean {
+  if (drawable !== null) return drawable;
+  try {
+    drawable =
+      typeof document !== "undefined" &&
+      document.createElement("canvas").getContext("2d") !== null;
+  } catch {
+    drawable = false;
+  }
+  return drawable;
+}
+
 const COLORS = ["#a78bfa", "#f472b6", "#34d399", "#fbbf24", "#60a5fa"];
 
 /** Small burst — a combo tier just went up. */
 export function celebrateCombo() {
-  if (reducedMotion()) return;
+  if (reducedMotion() || !canDraw()) return;
   void confetti({
     particleCount: 40,
     spread: 60,
@@ -24,7 +43,7 @@ export function celebrateCombo() {
 
 /** The goal was reached. */
 export function celebrateWin() {
-  if (reducedMotion()) return;
+  if (reducedMotion() || !canDraw()) return;
 
   const end = Date.now() + 1400;
   const frame = () => {

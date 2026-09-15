@@ -99,6 +99,7 @@ describe("translate", () => {
       days: 11,
       missed: 12,
       percent: 13,
+      level: 14,
       name: "Zosia",
       when: "today",
     };

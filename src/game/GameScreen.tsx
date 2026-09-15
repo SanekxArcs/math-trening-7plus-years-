@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Eye, Flag, Pause, Play, Settings2, Trophy } from "lucide-react";
 import { Link } from "react-router-dom";
-import { displayPoints } from "@/engine";
+import { displayPoints, goalForLevel, hasNextLevel, settingsForLevel } from "@/engine";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/useI18n";
 import { ComboMeter } from "./ComboMeter";
@@ -16,6 +16,7 @@ import { celebrateCombo, celebrateWin } from "./celebrate";
 import { playSound } from "./sound";
 import { useGame, type AttemptRecord, type StatsSource } from "./useGame";
 import { useLocalSession } from "./useLocalSession";
+import { useLocalLevel } from "./useLocalLevel";
 import { SyncBadge } from "./SyncBadge";
 import type { GameSettings } from "@/engine";
 import type { SyncStatus } from "@/sync/useSync";
@@ -37,7 +38,7 @@ export interface GameScreenProps {
  * what lets the same component run local-only, synced, and under test.
  */
 export function GameScreen({
-  settings,
+  settings: baseSettings,
   onRecord,
   syncStatus,
   getStats,
@@ -45,6 +46,19 @@ export function GameScreen({
 }: GameScreenProps) {
   const { t } = useI18n();
   const [hintOpen, setHintOpen] = useState(false);
+
+  /**
+   * The child's level, laid over the parent's settings.
+   *
+   * Memoised, not computed inline: the game reads a new settings object as a
+   * settings change and starts a fresh round, so an object rebuilt on every
+   * render would restart the question forever.
+   */
+  const [level, advanceLevel] = useLocalLevel();
+  const settings = useMemo(
+    () => settingsForLevel(baseSettings, level),
+    [baseSettings, level],
+  );
 
   const onAttempt = useCallback(
     (records: AttemptRecord[]) => onRecord?.(records),
@@ -55,6 +69,9 @@ export function GameScreen({
   // browser reclaiming the tab — used to drop the child back to zero mid-run,
   // and there is no explaining that to a seven-year-old.
   const [resume, saveSession] = useLocalSession();
+
+  const canLevelUp = hasNextLevel(baseSettings, level);
+  const nextGoal = goalForLevel(baseSettings.goalTarget, level + 1);
 
   const game = useGame({
     settings,
@@ -93,6 +110,16 @@ export function GameScreen({
 
   const canShowHint = settings.visualHintEnabled && problem.hint !== null;
 
+  /**
+   * Moving up a level. The level is banked first, then the board is cleared:
+   * the restart is what resets the score, and the new settings arriving right
+   * behind it only change the target being played to.
+   */
+  const startNextLevel = () => {
+    advanceLevel();
+    game.restart();
+  };
+
   const openHint = () => {
     setHintOpen((open) => !open);
     if (!hintOpen) game.useVisualHint();
@@ -113,6 +140,13 @@ export function GameScreen({
           <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
             {t("points")}
           </span>
+          {/* Nothing new appears until the child has actually earned a level,
+              so level 1 looks exactly as it always did. */}
+          {level > 1 && (
+            <span className="rounded-full bg-secondary px-2 py-0.5 font-display text-xs font-black tabular-nums text-primary">
+              {t("levelShort", { level })}
+            </span>
+          )}
         </div>
 
         <ComboMeter score={state.score} />
@@ -324,7 +358,11 @@ export function GameScreen({
                   state.won ? "text-correct" : "text-foreground",
                 )}
               >
-                {state.won ? t("goalReached") : t("sessionOver")}
+                {state.won
+                  ? level > 1
+                    ? t("levelCleared", { level })
+                    : t("goalReached")
+                  : t("sessionOver")}
               </h2>
               <p className="mt-2 text-muted-foreground">
                 {t("finishSummary", {
@@ -333,13 +371,40 @@ export function GameScreen({
                   streak: state.score.bestStreak,
                 })}
               </p>
-              <button
-                type="button"
-                onClick={game.restart}
-                className="mt-8 w-full rounded-[--radius-lg] border-b-8 border-primary/60 bg-primary py-5 font-display text-xl font-black text-primary-foreground shadow-xl focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
-              >
-                {t("playAgain")}
-              </button>
+
+              {/* The next level is offered only for a goal actually reached.
+                  A child who stopped for lunch is not moved up, and neither is
+                  one whose goal is already at the ceiling — a "next level" that
+                  plays to the same target is a promise the game cannot keep. */}
+              {state.won && canLevelUp ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={startNextLevel}
+                    className="mt-8 w-full rounded-[--radius-lg] border-b-8 border-primary/60 bg-primary py-5 font-display text-xl font-black text-primary-foreground shadow-xl focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
+                  >
+                    {t("nextLevel", { level: level + 1 })}
+                    <span className="mt-1 block text-sm font-bold text-primary-foreground/80">
+                      {t("nextLevelGoal", { points: nextGoal })}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={game.restart}
+                    className="mt-3 w-full rounded-[--radius-lg] py-3 font-display font-bold text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
+                  >
+                    {t("sameLevel", { level })}
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={game.restart}
+                  className="mt-8 w-full rounded-[--radius-lg] border-b-8 border-primary/60 bg-primary py-5 font-display text-xl font-black text-primary-foreground shadow-xl focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
+                >
+                  {t("playAgain")}
+                </button>
+              )}
             </Dialog>
           </Backdrop>
         )}

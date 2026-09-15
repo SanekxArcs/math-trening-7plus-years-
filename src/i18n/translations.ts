@@ -50,6 +50,11 @@ const en = {
 
   // Finish
   goalReached: "Goal reached!",
+  levelShort: "Lv {level}",
+  levelCleared: "Level {level} done!",
+  nextLevel: "Play level {level}",
+  nextLevelGoal: "{points} points to win",
+  sameLevel: "Play level {level} again",
   finishSummary: "{points} points · {correct} correct · best streak {streak}",
   playAgain: "Play again",
   pauseGame: "Pause the game",
@@ -213,6 +218,11 @@ const pl: Record<TranslationKey, string> = {
   countedTotal: "Razem: {total}",
 
   goalReached: "Cel osiągnięty!",
+  levelShort: "Poz. {level}",
+  levelCleared: "Poziom {level} zaliczony!",
+  nextLevel: "Zagraj poziom {level}",
+  nextLevelGoal: "{points} punktów do wygranej",
+  sameLevel: "Powtórz poziom {level}",
   finishSummary: "{points} punktów · {correct} dobrze · najlepsza seria {streak}",
   playAgain: "Zagraj jeszcze raz",
   pauseGame: "Zatrzymaj grę",
@@ -368,6 +378,11 @@ const uk: Record<TranslationKey, string> = {
   countedTotal: "Разом: {total}",
 
   goalReached: "Ціль досягнута!",
+  levelShort: "Рів. {level}",
+  levelCleared: "Рівень {level} пройдено!",
+  nextLevel: "Грати рівень {level}",
+  nextLevelGoal: "{points} балів до перемоги",
+  sameLevel: "Повторити рівень {level}",
   finishSummary: "{points} балів · {correct} правильно · найкраща серія {streak}",
   playAgain: "Грати знову",
   pauseGame: "Зупинити гру",
