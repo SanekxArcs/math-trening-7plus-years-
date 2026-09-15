@@ -15,6 +15,7 @@ import { PairCodeBadge } from "./PairCodeBadge";
 import { celebrateCombo, celebrateWin } from "./celebrate";
 import { playSound } from "./sound";
 import { useGame, type AttemptRecord, type StatsSource } from "./useGame";
+import { useLocalSession } from "./useLocalSession";
 import { SyncBadge } from "./SyncBadge";
 import type { GameSettings } from "@/engine";
 import type { SyncStatus } from "@/sync/useSync";
@@ -50,7 +51,18 @@ export function GameScreen({
     [onRecord],
   );
 
-  const game = useGame({ settings, onAttempt, ...(getStats ? { getStats } : {}) });
+  // Points survive a reload. A refresh — a stray swipe, a sleeping tablet, the
+  // browser reclaiming the tab — used to drop the child back to zero mid-run,
+  // and there is no explaining that to a seven-year-old.
+  const [resume, saveSession] = useLocalSession();
+
+  const game = useGame({
+    settings,
+    onAttempt,
+    resume,
+    onSessionChange: saveSession,
+    ...(getStats ? { getStats } : {}),
+  });
   const { state } = game;
   const { problem } = state.question;
   const revealed = state.phase !== "asking";

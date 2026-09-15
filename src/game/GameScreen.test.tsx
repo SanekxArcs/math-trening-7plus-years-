@@ -171,6 +171,28 @@ describe("GameScreen", () => {
     expect(screen.getByRole("button", { name: "Play again" })).toBeInTheDocument();
   });
 
+  it("keeps the points when the page is reloaded", async () => {
+    // The bug this covers: a refresh — a stray swipe, a sleeping tablet, the
+    // browser reclaiming the tab — dropped the child back to zero mid-run.
+    const user = userEvent.setup();
+    const first = renderGame({ difficulty: "medium", timerEnabled: false, goalEnabled: false });
+
+    const answer = solveVisibleQuestion();
+    await user.click(screen.getByRole("button", { name: `Answer ${answer}` }));
+    await screen.findByText("+10");
+
+    first.unmount();
+    const { container } = renderGame({
+      difficulty: "medium",
+      timerEnabled: false,
+      goalEnabled: false,
+    });
+
+    const header = container.querySelector("header");
+    expect(header).not.toBeNull();
+    expect(within(header!).getByText("10")).toBeInTheDocument();
+  });
+
   it("keeps the goal bar and points in step", async () => {
     const user = userEvent.setup();
     const { container } = renderGame({

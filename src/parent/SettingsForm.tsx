@@ -212,9 +212,9 @@ export function SettingsForm({ token, settings, locale }: SettingsFormProps) {
           <SliderField
             label={t("pointsToWin")}
             value={draft.goalTarget}
-            min={20}
-            max={1000}
-            step={10}
+            min={100}
+            max={10000}
+            step={100}
             onChange={(value) => set("goalTarget", value)}
           />
         )}

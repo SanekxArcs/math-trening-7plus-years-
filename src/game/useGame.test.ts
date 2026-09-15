@@ -146,3 +146,44 @@ describe("stopping", () => {
     expect(state.score.correct).toBe(0);
   });
 });
+
+describe("resuming a session", () => {
+  const snapshot = {
+    score: {
+      rawPoints: 140,
+      goodStreak: 6,
+      badStreak: 0,
+      bestStreak: 6,
+      correct: 12,
+      wrong: 1,
+    },
+    won: false,
+    stopped: false,
+    halfHalfReadyAt: T0 + 20_000,
+    savedAt: T0,
+  };
+
+  it("carries the points, the combo and the lifeline cooldown across a reload", () => {
+    const state = createInitialState(DEFAULT_SETTINGS, T0, () => new Map(), snapshot);
+
+    expect(state.score).toEqual(snapshot.score);
+    expect(state.halfHalfReadyAt).toBe(T0 + 20_000);
+    // The question is not restored — a reload always asks a fresh one.
+    expect(state.phase).toBe("asking");
+    expect(state.question.problem.prompt).toBeTruthy();
+  });
+
+  it("comes back finished when the session had already ended", () => {
+    const state = createInitialState(DEFAULT_SETTINGS, T0, () => new Map(), {
+      ...snapshot,
+      won: true,
+    });
+
+    expect(state.phase).toBe("finished");
+    expect(state.won).toBe(true);
+  });
+
+  it("starts clean with nothing stored", () => {
+    expect(fresh().score.rawPoints).toBe(0);
+  });
+});

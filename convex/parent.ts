@@ -251,6 +251,6 @@ const LIMITS = {
   limit1: { min: 1, max: 100 },
   limit2: { min: 1, max: 100 },
   timerSec: { min: 3, max: 120 },
-  goalTarget: { min: 20, max: 5000 },
+  goalTarget: { min: 20, max: 10000 },
   halfHalfCooldownSec: { min: 0, max: 600 },
 } as const;

@@ -135,23 +135,44 @@ function freshQuestion(
   };
 }
 
+/**
+ * What is worth carrying across a reload: the points, the streaks and the
+ * lifeline cooldown. The question on screen is not — a fresh one is no loss,
+ * and rebuilding it is how a reload stays cheap.
+ */
+export interface SessionSnapshot {
+  score: ScoreState;
+  won: boolean;
+  stopped: boolean;
+  halfHalfReadyAt: number;
+  /** Epoch ms, so whoever restores it can decide the session is too old. */
+  savedAt: number;
+}
+
 export function createInitialState(
   settings: GameSettings = DEFAULT_SETTINGS,
   now: number = Date.now(),
   getStats: StatsSource = NO_STATS,
+  resume: SessionSnapshot | null = null,
 ): GameState {
-  return {
+  const state: GameState = {
     settings,
-    score: INITIAL_SCORE,
-    won: false,
-    stopped: false,
+    score: resume?.score ?? INITIAL_SCORE,
+    won: resume?.won ?? false,
+    stopped: resume?.stopped ?? false,
     pausedBy: [],
     paused: false,
     pausedAt: null,
     pending: [],
-    halfHalfReadyAt: 0,
+    // Restored too, so reloading the page is not a way to skip the wait.
+    halfHalfReadyAt: resume?.halfHalfReadyAt ?? 0,
     ...freshQuestion(settings, {}, now, getStats),
   };
+
+  // A session that had already ended comes back ended, showing the same summary
+  // it was showing before — rather than silently resuming above the goal, where
+  // the next right answer would fire the win a second time.
+  return state.won || state.stopped ? { ...state, phase: "finished" } : state;
 }
 
 function settle(
@@ -369,6 +390,10 @@ export function gameReducer(state: GameState, action: Action): GameState {
 export interface UseGameOptions {
   settings: GameSettings;
   onAttempt?: (records: AttemptRecord[]) => void;
+  /** A session to carry on from, read once at mount and ignored afterwards. */
+  resume?: SessionSnapshot | null;
+  /** Called whenever the score changes, for whoever stores it. */
+  onSessionChange?: (snapshot: SessionSnapshot) => void;
   /**
    * Read synchronously whenever a question is built. A getter rather than a
    * value because the map is mutated in place as answers land, and the reducer
@@ -377,7 +402,13 @@ export interface UseGameOptions {
   getStats?: StatsSource;
 }
 
-export function useGame({ settings, onAttempt, getStats = NO_STATS }: UseGameOptions) {
+export function useGame({
+  settings,
+  onAttempt,
+  getStats = NO_STATS,
+  resume = null,
+  onSessionChange,
+}: UseGameOptions) {
   const statsRef = useRef(getStats);
   statsRef.current = getStats;
   const readStats = useCallback<StatsSource>(() => statsRef.current(), []);
@@ -385,7 +416,9 @@ export function useGame({ settings, onAttempt, getStats = NO_STATS }: UseGameOpt
   const [state, dispatch] = useReducer(
     gameReducer,
     settings,
-    (initial: GameSettings) => createInitialState(initial, Date.now(), readStats),
+    // `resume` is read here and nowhere else: the initializer runs once, so a
+    // stale snapshot arriving later can never overwrite live play.
+    (initial: GameSettings) => createInitialState(initial, Date.now(), readStats, resume),
   );
 
   // Settings arriving from the parent dashboard (or from local storage on boot)
@@ -473,6 +506,23 @@ export function useGame({ settings, onAttempt, getStats = NO_STATS }: UseGameOpt
     sync();
     return () => document.removeEventListener("visibilitychange", sync);
   }, []);
+
+  /**
+   * Keep the stored session in step with the score.
+   *
+   * Written on every change rather than on unload, because a tab that is killed
+   * — the browser reclaiming memory on a tablet, a crash, a force-quit — never
+   * gets an unload event, and that is exactly the case this is here for.
+   */
+  useEffect(() => {
+    onSessionChange?.({
+      score: state.score,
+      won: state.won,
+      stopped: state.stopped,
+      halfHalfReadyAt: state.halfHalfReadyAt,
+      savedAt: Date.now(),
+    });
+  }, [state.score, state.won, state.stopped, state.halfHalfReadyAt, onSessionChange]);
 
   // Hand finished attempts to whoever persists them, then clear the queue.
   useEffect(() => {
