@@ -9,6 +9,7 @@ import {
   halfHalfRemoves,
   isGoalReached,
   nextQuestion,
+  questionFitsSettings,
   randInt,
   type FactStat,
   type GameSettings,
@@ -136,15 +137,26 @@ function freshQuestion(
 }
 
 /**
- * What is worth carrying across a reload: the points, the streaks and the
- * lifeline cooldown. The question on screen is not — a fresh one is no loss,
- * and rebuilding it is how a reload stays cheap.
+ * What is carried across a reload: the points, the streaks, the lifeline
+ * cooldown — and the question itself.
+ *
+ * The question used to be left out as "no loss", which quietly made reloading
+ * the cheapest way out of a hard one: the score came back untouched and the
+ * board rolled something easier. A reload now puts the child back in front of
+ * exactly what they were looking at.
  */
 export interface SessionSnapshot {
   score: ScoreState;
   won: boolean;
   stopped: boolean;
   halfHalfReadyAt: number;
+  /** The unanswered question on screen; null once it has been settled. */
+  question: Question | null;
+  /** Lifelines already spent on that question — a reload does not refund them. */
+  usedHalfHalf: boolean;
+  usedVisualHint: boolean;
+  /** Option indices 50:50 had already removed, so they stay removed. */
+  hidden: number[];
   /** Epoch ms, so whoever restores it can decide the session is too old. */
   savedAt: number;
 }
@@ -155,6 +167,11 @@ export function createInitialState(
   getStats: StatsSource = NO_STATS,
   resume: SessionSnapshot | null = null,
 ): GameState {
+  // Only if it still belongs here: the parent may have changed the difficulty,
+  // or the child levelled up, between the tab closing and this one opening.
+  const restored =
+    resume?.question && questionFitsSettings(resume.question, settings) ? resume : null;
+
   const state: GameState = {
     settings,
     score: resume?.score ?? INITIAL_SCORE,
@@ -167,6 +184,17 @@ export function createInitialState(
     // Restored too, so reloading the page is not a way to skip the wait.
     halfHalfReadyAt: resume?.halfHalfReadyAt ?? 0,
     ...freshQuestion(settings, {}, now, getStats),
+    // The clock starts over: the seconds a reload takes are not the child's,
+    // and coming back to a question that is already out of time would punish
+    // the sleeping tablet rather than the child dodging a hard question.
+    ...(restored && restored.question
+      ? {
+          question: restored.question,
+          usedHalfHalf: restored.usedHalfHalf,
+          usedVisualHint: restored.usedVisualHint,
+          hidden: restored.hidden,
+        }
+      : {}),
   };
 
   // A session that had already ended comes back ended, showing the same summary
@@ -361,7 +389,14 @@ export function gameReducer(state: GameState, action: Action): GameState {
 
     case "applySettings": {
       // Difficulty or operations changing mid-question would leave stale tiles
-      // on screen, so a settings change always starts a clean round.
+      // on screen, so that starts a clean round. A change the question survives
+      // — sound, the goal, the timer, or the profile's own settings arriving
+      // from the server a moment after boot — leaves it alone. That last case
+      // is why this check exists at all: an unconditional rebuild here threw
+      // away the restored question a second after the page loaded.
+      if (questionFitsSettings(state.question, action.settings)) {
+        return { ...state, settings: action.settings };
+      }
       return {
         ...state,
         settings: action.settings,
@@ -520,9 +555,27 @@ export function useGame({
       won: state.won,
       stopped: state.stopped,
       halfHalfReadyAt: state.halfHalfReadyAt,
+      // Only a question still waiting for an answer is worth keeping. One that
+      // has been settled would come back already answered, and the reveal it
+      // belongs to is long gone.
+      question: state.phase === "asking" ? state.question : null,
+      usedHalfHalf: state.usedHalfHalf,
+      usedVisualHint: state.usedVisualHint,
+      hidden: state.hidden,
       savedAt: Date.now(),
     });
-  }, [state.score, state.won, state.stopped, state.halfHalfReadyAt, onSessionChange]);
+  }, [
+    state.score,
+    state.won,
+    state.stopped,
+    state.halfHalfReadyAt,
+    state.question,
+    state.phase,
+    state.usedHalfHalf,
+    state.usedVisualHint,
+    state.hidden,
+    onSessionChange,
+  ]);
 
   // Hand finished attempts to whoever persists them, then clear the queue.
   useEffect(() => {

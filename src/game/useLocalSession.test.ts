@@ -16,6 +16,23 @@ const snapshot = {
   won: false,
   stopped: false,
   halfHalfReadyAt: T0 + 5000,
+  question: {
+    problem: {
+      op: "mul" as const,
+      a: 8,
+      b: 7,
+      factA: 8,
+      factB: 7,
+      prompt: "8 × 7",
+      answer: 56,
+      hint: { groups: 7, perGroup: 8 },
+    },
+    options: [56, 48, 63, 54],
+    mode: "choice" as const,
+  },
+  usedHalfHalf: true,
+  usedVisualHint: false,
+  hidden: [1, 3],
   savedAt: T0,
 };
 
@@ -41,5 +58,33 @@ describe("the stored session", () => {
 
     localStorage.setItem("math_master_session", JSON.stringify({ savedAt: T0 }));
     expect(readSession(T0)?.score.rawPoints).toBe(0);
+  });
+
+  it("drops a half-written question rather than asking an unanswerable one", () => {
+    // A missing answer, a text operand, tiles that are not numbers: each one
+    // would reach the board as a question the child cannot get right.
+    const broken = [
+      { ...snapshot.question, problem: { ...snapshot.question.problem, answer: null } },
+      { ...snapshot.question, problem: { ...snapshot.question.problem, op: "power" } },
+      { ...snapshot.question, options: [56, "48", 63, 54] },
+      { ...snapshot.question, mode: "guess" },
+    ];
+
+    for (const question of broken) {
+      writeSession({ ...snapshot, question } as never);
+      const restored = readSession(T0);
+      expect(restored?.score.rawPoints).toBe(85);
+      expect(restored?.question).toBeNull();
+    }
+  });
+
+  it("forgets the spent lifelines along with the question they belonged to", () => {
+    // Otherwise the next question would come up with two of its tiles already
+    // hidden and 50:50 greyed out, for no reason the child can see.
+    writeSession({ ...snapshot, question: null });
+
+    const restored = readSession(T0);
+    expect(restored?.usedHalfHalf).toBe(false);
+    expect(restored?.hidden).toEqual([]);
   });
 });

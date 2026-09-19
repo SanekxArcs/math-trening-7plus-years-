@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SETTINGS, MAX_ATTEMPT_MS } from "@/engine";
+import { DEFAULT_SETTINGS, MAX_ATTEMPT_MS, type Question } from "@/engine";
 import { createInitialState, gameReducer, type GameState } from "./useGame";
 
 const T0 = 1_700_000_000_000;
@@ -148,6 +148,22 @@ describe("stopping", () => {
 });
 
 describe("resuming a session", () => {
+  /** A four-tile question, as Medium asks them. */
+  const stored: Question = {
+    problem: {
+      op: "mul",
+      a: 8,
+      b: 7,
+      factA: 8,
+      factB: 7,
+      prompt: "8 × 7",
+      answer: 56,
+      hint: { groups: 7, perGroup: 8 },
+    },
+    options: [56, 48, 63, 54],
+    mode: "choice",
+  };
+
   const snapshot = {
     score: {
       rawPoints: 140,
@@ -160,6 +176,10 @@ describe("resuming a session", () => {
     won: false,
     stopped: false,
     halfHalfReadyAt: T0 + 20_000,
+    question: stored,
+    usedHalfHalf: false,
+    usedVisualHint: false,
+    hidden: [],
     savedAt: T0,
   };
 
@@ -168,9 +188,69 @@ describe("resuming a session", () => {
 
     expect(state.score).toEqual(snapshot.score);
     expect(state.halfHalfReadyAt).toBe(T0 + 20_000);
-    // The question is not restored — a reload always asks a fresh one.
     expect(state.phase).toBe("asking");
-    expect(state.question.problem.prompt).toBeTruthy();
+  });
+
+  it("asks the same question again, so a reload cannot dodge a hard one", () => {
+    const state = createInitialState(DEFAULT_SETTINGS, T0, () => new Map(), snapshot);
+
+    expect(state.question).toEqual(stored);
+    // The clock starts over: a slow reload is not the child's thinking time.
+    expect(state.askedAt).toBe(T0);
+  });
+
+  it("does not refund the lifelines already spent on that question", () => {
+    const state = createInitialState(DEFAULT_SETTINGS, T0, () => new Map(), {
+      ...snapshot,
+      usedHalfHalf: true,
+      usedVisualHint: true,
+      hidden: [1, 2],
+    });
+
+    expect(state.usedHalfHalf).toBe(true);
+    expect(state.usedVisualHint).toBe(true);
+    expect(state.hidden).toEqual([1, 2]);
+  });
+
+  it("builds a fresh question when the stored one no longer fits the settings", () => {
+    // The parent moved the child up to Hard overnight: six tiles, not four.
+    const state = createInitialState(
+      { ...DEFAULT_SETTINGS, difficulty: "hard" },
+      T0,
+      () => new Map(),
+      snapshot,
+    );
+
+    expect(state.question.options).toHaveLength(6);
+  });
+
+  it("keeps the restored question when settings arrive from the server", () => {
+    // The synced profile's settings land a moment after boot. Identical values
+    // through a different object used to rebuild the question and hand the
+    // child an easier one — the reload dodge by another route.
+    const state = createInitialState(DEFAULT_SETTINGS, T0, () => new Map(), snapshot);
+    const applied = gameReducer(state, {
+      type: "applySettings",
+      settings: { ...DEFAULT_SETTINGS },
+      now: T0 + 800,
+      getStats: () => new Map(),
+    });
+
+    expect(applied.question).toEqual(stored);
+    expect(applied.questionId).toBe(state.questionId);
+  });
+
+  it("leaves the question alone when only the sound changes", () => {
+    const state = fresh();
+    const applied = gameReducer(state, {
+      type: "applySettings",
+      settings: { ...DEFAULT_SETTINGS, soundEnabled: false },
+      now: T0 + 5000,
+      getStats: () => new Map(),
+    });
+
+    expect(applied.question).toBe(state.question);
+    expect(applied.settings.soundEnabled).toBe(false);
   });
 
   it("comes back finished when the session had already ended", () => {

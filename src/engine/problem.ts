@@ -1,6 +1,6 @@
 import { randInt, pick, type Rng } from "./rng.ts";
 import type { FactChoice } from "./mastery.ts";
-import type { AnswerMode, Difficulty, GameSettings, Op, Problem } from "./types.ts";
+import type { AnswerMode, Difficulty, GameSettings, Op, Problem, Question } from "./types.ts";
 
 const OPTION_COUNT: Record<Difficulty, number> = {
   easy: 2,
@@ -93,4 +93,36 @@ export function buildProblem(choice: FactChoice): Problem {
       };
     }
   }
+}
+
+/**
+ * Could this question have been asked under these settings?
+ *
+ * Two callers, one question. A reload restores the question that was on screen,
+ * and a settings change arrives mid-round: both need to know whether what is
+ * there still belongs there. Anything the answer does not depend on — the
+ * timer, the goal, the sound — deliberately does not appear here, so a parent
+ * turning the sound off does not throw away the round in progress.
+ */
+export function questionFitsSettings(question: Question, settings: GameSettings): boolean {
+  const { problem, options, mode } = question;
+
+  if (mode !== answerMode(settings.difficulty)) return false;
+  if (mode === "choice") {
+    if (options.length !== optionCount(settings.difficulty)) return false;
+    // A tile set without the answer in it cannot be answered at all; this is
+    // the one thing storage can hand back that would strand the child.
+    if (!options.includes(problem.answer)) return false;
+  }
+  if (!settings.ops.includes(problem.op)) return false;
+
+  // The fact, not the display: "28 ÷ 7" is inside a 9×9 table even though 28
+  // is not. Both limits are pooled rather than matched to their own operand,
+  // because subtraction swaps its operands to stay positive and division shows
+  // a product — pairing them up would reject questions that are perfectly legal.
+  const [min1, max1] = operandRange(settings, 1);
+  const [min2, max2] = operandRange(settings, 2);
+  const min = Math.min(min1, min2);
+  const max = Math.max(max1, max2);
+  return [problem.factA, problem.factB].every((value) => value >= min && value <= max);
 }

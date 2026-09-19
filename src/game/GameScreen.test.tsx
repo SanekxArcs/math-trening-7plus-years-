@@ -193,6 +193,22 @@ describe("GameScreen", () => {
     expect(within(header!).getByText("10")).toBeInTheDocument();
   });
 
+  it("asks the same question again after a reload", async () => {
+    // The dodge this closes: a hard question, a refresh, and the board rolled
+    // an easier one while the score stayed exactly where it was.
+    const options = { difficulty: "medium" as const, timerEnabled: false, goalEnabled: false };
+    const first = renderGame(options);
+
+    const prompt = screen.getByRole("heading", { level: 1 }).textContent;
+    const tiles = optionButtons().map((button) => button.textContent);
+
+    first.unmount();
+    renderGame(options);
+
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(prompt);
+    expect(optionButtons().map((button) => button.textContent)).toEqual(tiles);
+  });
+
   it("offers the next level once the goal is reached, and plays it", async () => {
     const user = userEvent.setup();
     // Easy scores 5 a question, so one right answer finishes this goal.
