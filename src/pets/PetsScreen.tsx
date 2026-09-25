@@ -35,6 +35,7 @@ import type { TranslationKey } from "@/i18n/translations";
 import { updateStable, useLiveStable, useStable } from "@/game/useStable";
 import { BottomBar } from "@/game/BottomBar";
 import { CoinCount } from "./CoinCount";
+import { PetArt, hasArt } from "./PetArt";
 
 const MOOD_TEXT: Record<Mood, TranslationKey> = {
   happy: "moodHappy",
@@ -165,14 +166,7 @@ function Adoption() {
       onSubmit={submit}
       className="flex flex-col items-center gap-4 rounded-[--radius-xl] bg-card p-8 text-center shadow-lg"
     >
-      <motion.span
-        className="text-[7rem] leading-none"
-        animate={{ y: [0, -8, 0] }}
-        transition={{ repeat: Infinity, duration: 2 }}
-        aria-hidden
-      >
-        🐴
-      </motion.span>
+      <PetArt species="horse" mood="happy" animated className="size-44" />
       <h2 className="font-display text-3xl font-black">{t("nameYourHorse")}</h2>
       <p className="text-muted-foreground">{t("nameYourHorseBlurb")}</p>
       <NameField value={name} onChange={setName} placeholder={t("horseNamePlaceholder")} />
@@ -231,9 +225,7 @@ function PetTabs({ stable, active, onAdd }: { stable: Stable; active: Pet; onAdd
             pet.id === active.id ? "border-primary bg-secondary" : "border-transparent bg-card shadow-sm",
           )}
         >
-          <span className={cn("text-2xl leading-none", !pet.alive && "grayscale")} aria-hidden>
-            {SPECIES[pet.species].emoji}
-          </span>
+          <PetArt species={pet.species} className={cn("size-8", !pet.alive && "grayscale")} />
           <span className="max-w-24 truncate">{pet.name}</span>
           {needsCare(pet) && (
             <span className="absolute -right-0.5 -top-0.5 size-3 rounded-full border-2 border-card bg-wrong" />
@@ -295,9 +287,7 @@ function AdoptDialog({ stable, onClose }: { stable: Stable; onClose: () => void 
                   picked === species ? "border-primary bg-secondary" : "border-border bg-background",
                 )}
               >
-                <span className="text-5xl leading-none" aria-hidden>
-                  {info.emoji}
-                </span>
+                <PetArt species={species} className="size-16" />
                 <span className="font-bold">{t(SPECIES_NAME[species])}</span>
                 <span className="font-display text-sm font-black tabular-nums text-combo-foreground">
                   {affordable ? `🪙 ${info.price}` : `🪙 ${t("needMore", { coins: short })}`}
@@ -552,14 +542,32 @@ function ItemButton({
 }
 
 /**
- * The pet itself, drawn from emoji so it needs no assets and works offline.
- * Every state it can be in shows on the figure, not only in the bars: a child
- * who cannot read "Clean 20%" yet can see the mud.
+ * The pet itself. Every state it can be in shows on the figure, not only in
+ * the bars: a child who cannot read "Clean 20%" yet can see the mud.
+ *
+ * Drawn species animate themselves in CSS (see PetArt); the rest are still
+ * emoji, bobbed from here, with their mood in a badge beside them.
  */
 function PetFigure({ pet, mood, onPet }: { pet: Pet; mood: Mood; onPet: (() => void) | undefined }) {
   const gone = mood === "gone";
   const cheerful = mood === "happy" || mood === "ok";
   const mud = pet.alive ? Math.floor((100 - pet.clean) / 25) : 0;
+
+  if (hasArt(pet.species)) {
+    return (
+      <motion.button
+        type="button"
+        onClick={onPet}
+        disabled={!onPet}
+        aria-hidden
+        tabIndex={-1}
+        className="relative mt-2 select-none"
+        {...(onPet ? { whileTap: { scale: 0.92, rotate: -3 } } : {})}
+      >
+        <PetArt species={pet.species} mood={mood} mud={mud} animated className="size-56" />
+      </motion.button>
+    );
+  }
 
   return (
     <motion.button

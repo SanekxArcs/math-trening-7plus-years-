@@ -6,7 +6,6 @@ import {
   displayPoints,
   goalForLevel,
   hasNextLevel,
-  SPECIES,
   activePet,
   petNeedingCare,
   payReward,
@@ -31,6 +30,7 @@ import { useLocalLevel } from "./useLocalLevel";
 import { SyncBadge } from "./SyncBadge";
 import { BottomBar } from "./BottomBar";
 import { CoinCount } from "@/pets/CoinCount";
+import { PetArt } from "@/pets/PetArt";
 import { updateStable, useLiveStable, useStable } from "./useStable";
 import type { GameSettings } from "@/engine";
 import type { SyncStatus } from "@/sync/useSync";
@@ -449,7 +449,7 @@ export function GameScreen({
                   needy && "animate-pulse",
                 )}
               >
-                <span aria-hidden>{SPECIES[needy?.species ?? shown?.species ?? "horse"].emoji}</span>
+                <PetArt species={needy?.species ?? shown?.species ?? "horse"} className="size-7" />
                 {needy ? t("horseNeedsYou", { name: needy.name }) : t("visitHorse")}
               </Link>
 
@@ -520,9 +520,10 @@ export function GameScreen({
           aria-label={t("openStable", { coins: stable.coins })}
           className="relative flex items-center gap-2 justify-self-end rounded-full bg-primary py-2 pl-3 pr-5 font-display text-lg font-black text-primary-foreground shadow-md focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
         >
-          <span className={cn("text-3xl leading-none", shown && !shown.alive && "grayscale")} aria-hidden>
-            {SPECIES[shown?.species ?? "horse"].emoji}
-          </span>
+          <PetArt
+            species={shown?.species ?? "horse"}
+            className={cn("-my-1 size-10", shown && !shown.alive && "grayscale")}
+          />
           {t("pets")}
           {/* A dot rather than words: it has to read at a glance, mid-game,
               without pulling attention off the question. */}
