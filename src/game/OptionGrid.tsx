@@ -1,6 +1,8 @@
-import { motion } from "motion/react";
+import { motion, type MotionStyle } from "motion/react";
+import { Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/useI18n";
+import { Burst } from "./Burst";
 
 interface OptionGridProps {
   options: number[];
@@ -11,6 +13,16 @@ interface OptionGridProps {
   onPick: (value: number) => void;
 }
 
+type TileState = "correct" | "wrong" | "dim" | "hidden" | undefined;
+
+/**
+ * The answers, as chunky candy tiles in their own colours. The look lives in
+ * `.answer-tile` in index.css; this decides which state each tile is in and
+ * how it moves between them.
+ *
+ * Nothing but the number goes inside a tile as text — the badge and sparks are
+ * icons and shapes — so a tile's text is always exactly its value.
+ */
 export function OptionGrid({
   options,
   answer,
@@ -20,19 +32,23 @@ export function OptionGrid({
   onPick,
 }: OptionGridProps) {
   const { t } = useI18n();
-  // Two tiles read better side by side; four and six want two columns of large
-  // targets on a tablet held in portrait.
-  const columns = options.length === 2 ? "grid-cols-2" : "grid-cols-2";
 
   return (
-    <div className={cn("grid gap-3 sm:gap-4", columns)}>
+    <div className="grid grid-cols-2 gap-x-3 gap-y-4 sm:gap-x-4 sm:gap-y-5">
       {options.map((value, index) => {
         const isHidden = hidden.includes(index);
         const isAnswer = value === answer;
         const isChosen = chosen === value;
 
-        const showCorrect = revealed && isAnswer;
-        const showWrong = revealed && isChosen && !isAnswer;
+        const state: TileState = revealed
+          ? isAnswer
+            ? "correct"
+            : isChosen
+              ? "wrong"
+              : "dim"
+          : isHidden
+            ? "hidden"
+            : undefined;
 
         return (
           <motion.button
@@ -41,29 +57,52 @@ export function OptionGrid({
             disabled={revealed || isHidden}
             onClick={() => onPick(value)}
             aria-label={t("answerN", { value })}
-            initial={{ opacity: 0, y: 12 }}
+            data-state={state}
+            // Dealt in like cards, one after another.
+            initial={{ opacity: 0, y: 24, scale: 0.7, rotate: index % 2 ? 6 : -6 }}
             animate={{
-              opacity: isHidden ? 0.12 : 1,
+              opacity: 1,
               y: 0,
-              scale: showCorrect ? 1.04 : 1,
+              rotate: 0,
+              scale:
+                state === "correct" ? [1, 1.1, 1.04] : state === "hidden" ? 0.9 : state === "dim" ? 0.96 : 1,
+              x: state === "wrong" ? [0, -8, 8, -5, 5, 0] : 0,
             }}
-            transition={{ delay: index * 0.04, type: "spring", stiffness: 320, damping: 24 }}
-            whileTap={revealed || isHidden ? { scale: 1 } : { scale: 0.95 }}
+            transition={{
+              default: { type: "spring", stiffness: 380, damping: 22, delay: revealed ? 0 : index * 0.05 },
+              scale: { duration: 0.35 },
+              x: { duration: 0.4 },
+            }}
+            whileTap={revealed || isHidden ? {} : { scale: 0.97 }}
             className={cn(
-              "relative rounded-[--radius-lg] border-b-8 py-7 font-display text-4xl font-black tabular-nums shadow-lg transition-colors sm:py-9 sm:text-5xl",
-              "focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none",
-              "disabled:cursor-not-allowed",
-              showCorrect && "border-correct/70 bg-correct text-correct-foreground",
-              showWrong && "border-wrong/70 bg-wrong text-wrong-foreground",
-              !showCorrect && !showWrong && "border-black/10 bg-card text-foreground",
+              "answer-tile py-7 font-display text-4xl font-black tabular-nums sm:py-9 sm:text-5xl",
+              "disabled:cursor-default",
             )}
-            style={
-              showCorrect || showWrong
-                ? {}
-                : { color: `var(--option-${index % 6})` }
-            }
+            style={{ "--tile": `var(--option-${index % 6})` } as MotionStyle}
           >
             {value}
+
+            {(state === "correct" || state === "wrong") && (
+              <motion.span
+                className={cn(
+                  "absolute -right-2 -top-2 flex size-8 items-center justify-center rounded-full border-[3px] border-card shadow-md",
+                  state === "correct" ? "bg-correct text-correct-foreground" : "bg-wrong text-wrong-foreground",
+                )}
+                initial={{ scale: 0, rotate: -90 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: "spring", stiffness: 500, damping: 15, delay: 0.1 }}
+                aria-hidden
+              >
+                {state === "correct" ? (
+                  <Check className="size-4" strokeWidth={4} />
+                ) : (
+                  <X className="size-4" strokeWidth={4} />
+                )}
+              </motion.span>
+            )}
+
+            {/* Sparks only off the tile the child actually tapped. */}
+            {state === "correct" && isChosen && <Burst distance={80} />}
           </motion.button>
         );
       })}

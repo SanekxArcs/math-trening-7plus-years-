@@ -1,4 +1,5 @@
 import { motion } from "motion/react";
+import { cn } from "@/lib/utils";
 
 /**
  * Where everything tappable lives, pinned under the child's thumbs.
@@ -8,10 +9,20 @@ import { motion } from "motion/react";
  * combo, coins — and this bar is for doing. Three columns, so a middle button
  * stays centred whatever sits either side of it.
  *
+ * The game screen splits it five ways instead — tray, lifeline, pause,
+ * lifeline, pets — so pause sits in a cluster like a controller's centre.
+ *
  * Styled as the twin of the HUD panel — a floating frosted dock the same width
  * — so the screen is framed by one instrument above and one below.
  */
-export function BottomBar({ children }: { children: React.ReactNode }) {
+export function BottomBar({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  /** Overrides the column layout; three equal columns by default. */
+  className?: string;
+}) {
   return (
     <motion.nav
       initial={{ y: 90, opacity: 0 }}
@@ -21,7 +32,12 @@ export function BottomBar({ children }: { children: React.ReactNode }) {
       // Floats clear of the edge, and of the iOS home indicator below it.
       style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}
     >
-      <div className="pointer-events-auto relative mx-auto grid w-full max-w-136 grid-cols-3 items-center gap-3 rounded-xl border border-border/70 bg-card/85 px-3 py-2 shadow-[0_-4px_32px_-14px_oklch(0.4_0.16_295/0.45)] backdrop-blur-md">
+      <div
+        className={cn(
+          "pointer-events-auto relative mx-auto grid w-full max-w-136 grid-cols-3 items-center gap-3 rounded-xl border border-border/70 bg-card/85 px-3 py-2 shadow-[0_-4px_32px_-14px_oklch(0.4_0.16_295/0.45)] backdrop-blur-md",
+          className,
+        )}
+      >
         <span
           className="pointer-events-none absolute inset-x-6 top-0 h-px bg-linear-to-r from-transparent via-primary/50 to-transparent"
           aria-hidden

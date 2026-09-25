@@ -238,6 +238,109 @@
   animation: hud-stripes 0.7s linear infinite;
 }
 
+/*
+  Answer tiles and numpad keys: chunky 3D candy buttons, each tinted by its own
+  hue in --c. The raised edge is a hard box-shadow rather than a border, so a
+  press can sink the tile onto it. The press uses `translate`, a separate
+  property from `transform`, so it never fights motion's scale animations.
+*/
+.answer-tile {
+  --c: var(--tile, var(--primary));
+  --edge: color-mix(in oklch, var(--c) 72%, black);
+  position: relative;
+  isolation: isolate;
+  border-radius: var(--radius-lg);
+  color: color-mix(in oklch, var(--c) 72%, var(--foreground));
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--c) 7%, var(--card)),
+    color-mix(in oklch, var(--c) 22%, var(--card))
+  );
+  box-shadow:
+    inset 0 0 0 2px color-mix(in oklch, var(--c) 32%, transparent),
+    0 6px 0 0 var(--edge),
+    0 14px 22px -10px color-mix(in oklch, var(--c) 70%, transparent);
+  transition:
+    translate 0.12s ease-out,
+    box-shadow 0.12s ease-out,
+    background 0.25s,
+    color 0.25s,
+    opacity 0.3s,
+    filter 0.3s;
+}
+
+/* The gloss across the top half: what turns a flat panel into a sweet. */
+.answer-tile::before {
+  content: "";
+  position: absolute;
+  inset: 4px 8px auto;
+  height: 42%;
+  border-radius: calc(var(--radius-lg) - 6px) calc(var(--radius-lg) - 6px) 40% 40%;
+  background: linear-gradient(180deg, oklch(1 0 0 / 0.55), oklch(1 0 0 / 0));
+  pointer-events: none;
+  z-index: -1;
+}
+
+.answer-tile:not(:disabled):hover {
+  translate: 0 -2px;
+  box-shadow:
+    inset 0 0 0 2px color-mix(in oklch, var(--c) 45%, transparent),
+    0 8px 0 0 var(--edge),
+    0 18px 26px -10px color-mix(in oklch, var(--c) 75%, transparent);
+}
+
+.answer-tile:not(:disabled):active {
+  translate: 0 5px;
+  box-shadow:
+    inset 0 0 0 2px color-mix(in oklch, var(--c) 45%, transparent),
+    0 1px 0 0 var(--edge),
+    0 4px 8px -4px color-mix(in oklch, var(--c) 60%, transparent);
+}
+
+.answer-tile:focus-visible {
+  outline: 4px solid var(--ring);
+  outline-offset: 3px;
+}
+
+/* Filled variants: the verdict on a tile, and the numpad's check key. */
+.answer-tile[data-tone="solid"],
+.answer-tile[data-state="correct"],
+.answer-tile[data-state="wrong"] {
+  color: oklch(1 0 0);
+  text-shadow: 0 2px 0 oklch(0 0 0 / 0.18);
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--c) 82%, white),
+    var(--c)
+  );
+}
+
+.answer-tile[data-state="correct"] {
+  --c: var(--correct);
+}
+
+.answer-tile[data-state="wrong"] {
+  --c: var(--wrong);
+}
+
+/* Not the answer, not chosen: step back so the verdict is what is seen. */
+.answer-tile[data-state="dim"] {
+  opacity: 0.4;
+  filter: saturate(0.5);
+}
+
+/* Taken away by 50:50: a hollow where the tile was. */
+.answer-tile[data-state="hidden"] {
+  opacity: 0.18;
+  filter: grayscale(1);
+  box-shadow: inset 0 0 0 2px color-mix(in oklch, var(--c) 40%, transparent);
+  background: transparent;
+}
+
+.answer-tile[data-state="hidden"]::before {
+  display: none;
+}
+
 /* Respect the OS setting. Everything animated must still be usable at 0s. */
 @media (prefers-reduced-motion: reduce) {
   *,

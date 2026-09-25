@@ -17,6 +17,8 @@ import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/useI18n";
 import { GameHud } from "./GameHud";
 import { HalfHalfButton } from "./HalfHalfButton";
+import { PowerButton } from "./PowerButton";
+import { ProblemCard } from "./ProblemCard";
 import { Numpad } from "./Numpad";
 import { OptionGrid } from "./OptionGrid";
 import { HintPanel, hasPictureHint } from "./HintPanel";
@@ -161,6 +163,7 @@ export function GameScreen({
 
   const canShowHint = settings.visualHintEnabled && hasPictureHint(problem);
   const hintOpen = canShowHint && hintFor === state.questionId;
+  const halfHalfOn = settings.halfHalfEnabled && state.question.mode === "choice";
 
   /**
    * Moving up a level. The level is banked first, then the board is cleared:
@@ -204,60 +207,28 @@ export function GameScreen({
           question sits under the child's eyeline on a tall tablet instead of
           riding at the top with dead space below. */}
       <div className="flex flex-1 flex-col justify-center gap-6">
-      <section className="flex flex-col items-center justify-center py-4">
-        {/* Deliberately not wrapped in AnimatePresence.
-            With `mode="wait"` the outgoing question stayed on screen until its
-            exit animation finished, while the answer tiles — which are not in
-            an AnimatePresence — had already swapped to the next question. For a
-            few hundred milliseconds the child saw the previous question above
-            the next question's answers. Keying the heading makes it remount in
-            the same frame as the tiles, so the two can never disagree. */}
-        <motion.h1
-          key={state.questionId}
-          initial={{ opacity: 0, y: 16, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ type: "spring", stiffness: 300, damping: 26 }}
-          className="font-display text-6xl font-black tabular-nums tracking-tight sm:text-7xl"
-        >
-          {problem.prompt}
-        </motion.h1>
-
-        <div className="h-9 pt-2">
-          <AnimatePresence>
-            {outcome && (
-              <motion.p
-                key={`${state.questionId}-fb`}
-                initial={{ opacity: 0, scale: 0.7 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0 }}
-                className={cn(
-                  "font-display text-xl font-black tabular-nums",
-                  outcome.isCorrect ? "text-correct" : "text-wrong",
-                )}
-              >
-                {outcome.timedOut
-                  ? t("timeUp")
-                  : outcome.isCorrect
-                    ? `+${outcome.delta}${outcome.multiplier > 1 ? ` ×${outcome.multiplier}!` : ""}`
-                    : `${outcome.delta}`}
-              </motion.p>
-            )}
-          </AnimatePresence>
-        </div>
-      </section>
+      <ProblemCard
+        questionId={state.questionId}
+        prompt={problem.prompt}
+        answer={problem.answer}
+        typed={state.question.mode === "type" ? state.typed : null}
+        outcome={outcome}
+      />
 
       <section>
         {state.question.mode === "type" ? (
           <Numpad
             value={state.typed}
             revealed={revealed}
-            correct={outcome?.isCorrect ?? false}
             onDigit={game.typeDigit}
             onBackspace={game.backspace}
             onSubmit={game.submitTyped}
           />
         ) : (
           <OptionGrid
+            // Per question, so every new hand is dealt in fresh — even a tile
+            // whose number happens to repeat in the same spot.
+            key={state.questionId}
             options={state.question.options}
             answer={problem.answer}
             hidden={state.hidden}
@@ -268,39 +239,6 @@ export function GameScreen({
         )}
       </section>
 
-      <section className="flex flex-wrap items-center justify-center gap-3">
-        {settings.halfHalfEnabled && state.question.mode === "choice" && (
-          <HalfHalfButton
-            readyAt={state.halfHalfReadyAt}
-            cooldownSec={settings.halfHalfCooldownSec}
-            usedThisRound={state.usedHalfHalf}
-            disabled={revealed}
-            onUse={game.useHalfHalf}
-          />
-        )}
-
-        {canShowHint && (
-          <button
-            type="button"
-            onClick={toggleHint}
-            aria-expanded={hintOpen}
-            className={cn(
-              "flex items-center gap-2 rounded-full px-5 py-3 font-display font-bold shadow-md transition-colors focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none",
-              hintOpen
-                ? "bg-primary/10 text-primary"
-                : "bg-card text-muted-foreground hover:text-foreground",
-            )}
-          >
-            <Eye className="size-5" aria-hidden />
-            {hintOpen ? t("hideHint") : t("showHint")}
-            {!hintOpen && (
-              <span className="rounded-md bg-black/5 px-1.5 py-0.5 text-xs font-bold">
-                {t("hintCost")}
-              </span>
-            )}
-          </button>
-        )}
-      </section>
 
       <AnimatePresence>
         {hintOpen && (
@@ -450,7 +388,7 @@ export function GameScreen({
         )}
       </AnimatePresence>
 
-      <BottomBar>
+      <BottomBar className="grid-cols-[1fr_auto_auto_auto_1fr] gap-2 sm:gap-3">
         {/* The grown-up corner: small, grouped in a tray, and visually quieter
             than the two big buttons a child is meant to use. */}
         <div className="flex items-center gap-0.5 justify-self-start rounded-full bg-muted/70 p-1">
@@ -465,6 +403,21 @@ export function GameScreen({
             a stray tap only pauses — nothing is lost. Raised out of the dock
             like a console's centre button, ringed in the card colour so it
             reads as sitting on top of it. */}
+        {/* The lifelines flank pause. A slot is kept even when one is switched
+            off, so pause stays dead centre; one that is on but not usable right
+            now — no picture for this sum, 50:50 recharging — shows greyed. */}
+        {halfHalfOn ? (
+          <HalfHalfButton
+            readyAt={state.halfHalfReadyAt}
+            cooldownSec={settings.halfHalfCooldownSec}
+            usedThisRound={state.usedHalfHalf}
+            disabled={revealed}
+            onUse={game.useHalfHalf}
+          />
+        ) : (
+          <span className="size-12" aria-hidden />
+        )}
+
         <button
           type="button"
           onClick={game.pause}
@@ -474,10 +427,23 @@ export function GameScreen({
           <Pause className="size-7" fill="currentColor" strokeWidth={0} aria-hidden />
         </button>
 
+        {settings.visualHintEnabled ? (
+          <PowerButton
+            icon={<Eye className="size-5" aria-hidden />}
+            onClick={toggleHint}
+            disabled={!canShowHint || revealed}
+            active={hintOpen}
+            aria-expanded={hintOpen}
+            aria-label={hintOpen ? t("hideHint") : `${t("showHint")} (${t("hintCost")})`}
+          />
+        ) : (
+          <span className="size-12" aria-hidden />
+        )}
+
         <Link
           to="/pets"
           aria-label={t("openStable", { coins: stable.coins })}
-          className="relative flex items-center gap-2 justify-self-end rounded-full border-b-4 border-black/15 bg-linear-to-b from-secondary to-accent py-1 pl-1 pr-4 font-display text-lg font-black text-secondary-foreground shadow-[0_4px_12px_-6px_var(--primary)] transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0.5 active:scale-95 active:border-b-2 focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
+          className="relative flex items-center gap-2 justify-self-end rounded-full border-b-4 border-black/15 bg-linear-to-b from-secondary to-accent p-1 sm:pr-4 font-display text-lg font-black text-secondary-foreground shadow-[0_4px_12px_-6px_var(--primary)] transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0.5 active:scale-95 active:border-b-2 focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
         >
           {/* The pet lives in a bubble and bobs gently, so the button reads as
               a friend waiting rather than a menu item. One that needs care
@@ -504,7 +470,8 @@ export function GameScreen({
               />
             </motion.span>
           </span>
-          {t("pets")}
+          {/* On a phone the pet alone says it; there is no room for both. */}
+          <span className="hidden sm:inline">{t("pets")}</span>
           {/* A dot rather than words: it has to read at a glance, mid-game,
               without pulling attention off the question. */}
           {needy && (

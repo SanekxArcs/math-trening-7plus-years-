@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import { motion } from "motion/react";
 import { Scissors } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/useI18n";
+import { PowerButton } from "./PowerButton";
 
 interface HalfHalfButtonProps {
   readyAt: number;
@@ -13,9 +12,9 @@ interface HalfHalfButtonProps {
 }
 
 /**
- * 50:50 with a visible cooldown. The countdown ring matters more than the
- * number: "wait until the circle fills" is readable by a child who cannot yet
- * read "18 seconds remaining".
+ * 50:50 with a visible cooldown. The countdown ring round the icon matters
+ * more than the number: "wait until the circle fills" is readable by a child
+ * who cannot yet read "18 seconds remaining".
  */
 export function HalfHalfButton({
   readyAt,
@@ -40,32 +39,12 @@ export function HalfHalfButton({
   const unavailable = disabled || usedThisRound || cooling;
 
   return (
-    <motion.button
-      type="button"
+    <PowerButton
+      icon={<Scissors className="size-5" aria-hidden />}
       onClick={onUse}
       disabled={unavailable}
-      whileTap={unavailable ? { scale: 1 } : { scale: 0.94 }}
+      charge={cooling ? progress : null}
       aria-label={cooling ? t("halfHalfReady", { seconds: remainingSec }) : t("useHalfHalf")}
-      className={cn(
-        "relative flex items-center gap-2 overflow-hidden rounded-full border-b-4 px-5 py-3 font-display font-bold shadow-md transition-colors",
-        "focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none",
-        unavailable
-          ? "border-black/5 bg-muted text-muted-foreground"
-          : "border-primary/50 bg-secondary text-secondary-foreground",
-      )}
-    >
-      {cooling && (
-        <span
-          className="absolute inset-0 origin-left bg-primary/15"
-          style={{ transform: `scaleX(${progress})` }}
-          aria-hidden
-        />
-      )}
-      <Scissors className="relative size-5" aria-hidden />
-      <span className="relative">{t("halfHalf")}</span>
-      <span className="relative rounded-md bg-black/5 px-1.5 py-0.5 text-xs tabular-nums">
-        {cooling ? t("secondsShort", { seconds: remainingSec }) : t("halfPoints")}
-      </span>
-    </motion.button>
+    />
   );
 }
