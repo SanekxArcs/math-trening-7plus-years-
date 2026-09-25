@@ -188,6 +188,56 @@
   }
 }
 
+/*
+  HUD motion. Kept in CSS rather than motion springs because they loop forever:
+  a JS animation per frame per bar would be paid for on every question.
+*/
+/* Crosses in the first half, then rests: a constant sweep pulls the eye off the sum. */
+@keyframes hud-sheen {
+  0% {
+    transform: translateX(-120%);
+  }
+  50%,
+  100% {
+    transform: translateX(320%);
+  }
+}
+
+@keyframes hud-stripes {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 28px 0;
+  }
+}
+
+/* A glint that crosses a filled bar now and then, so it reads as alive. */
+.hud-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    oklch(1 0 0 / 0.45) 50%,
+    transparent 100%
+  );
+  animation: hud-sheen 4s ease-in-out infinite;
+}
+
+/* Moving candy stripes: the "on fire" state of the combo bar. */
+.hud-stripes {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    oklch(1 0 0 / 0.28) 0 7px,
+    transparent 7px 14px
+  );
+  background-size: 28px 100%;
+  animation: hud-stripes 0.7s linear infinite;
+}
+
 /* Respect the OS setting. Everything animated must still be usable at 0s. */
 @media (prefers-reduced-motion: reduce) {
   *,

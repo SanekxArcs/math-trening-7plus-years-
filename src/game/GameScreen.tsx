@@ -15,11 +15,10 @@ import {
 } from "@/engine";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/useI18n";
-import { ComboMeter } from "./ComboMeter";
+import { GameHud } from "./GameHud";
 import { HalfHalfButton } from "./HalfHalfButton";
 import { Numpad } from "./Numpad";
 import { OptionGrid } from "./OptionGrid";
-import { TimerBar } from "./TimerBar";
 import { HintPanel, hasPictureHint } from "./HintPanel";
 import { PairCodeBadge } from "./PairCodeBadge";
 import { celebrateCombo, celebrateWin } from "./celebrate";
@@ -27,9 +26,7 @@ import { playSound } from "./sound";
 import { useGame, type AttemptRecord, type StatsSource } from "./useGame";
 import { useLocalSession } from "./useLocalSession";
 import { useLocalLevel } from "./useLocalLevel";
-import { SyncBadge } from "./SyncBadge";
 import { BottomBar } from "./BottomBar";
-import { CoinCount } from "@/pets/CoinCount";
 import { PetArt } from "@/pets/PetArt";
 import { updateStable, useLiveStable, useStable } from "./useStable";
 import type { GameSettings } from "@/engine";
@@ -162,11 +159,6 @@ export function GameScreen({
     setReward(paid);
   }, [state.phase, state.won, state.score, settings.goalEnabled, settings.goalTarget]);
 
-  const goalFraction = useMemo(() => {
-    if (!settings.goalEnabled) return 0;
-    return Math.min(1, displayPoints(state.score) / settings.goalTarget);
-  }, [state.score, settings.goalEnabled, settings.goalTarget]);
-
   const canShowHint = settings.visualHintEnabled && hasPictureHint(problem);
   const hintOpen = canShowHint && hintFor === state.questionId;
 
@@ -191,55 +183,22 @@ export function GameScreen({
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col gap-5 px-4 pb-28 pt-5">
-      <header className="flex items-center justify-between gap-3">
-        <div className="flex items-baseline gap-2">
-          <motion.span
-            key={displayPoints(state.score)}
-            initial={{ scale: 1.25 }}
-            animate={{ scale: 1 }}
-            className="font-display text-4xl font-black tabular-nums text-primary"
-          >
-            {displayPoints(state.score)}
-          </motion.span>
-          <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-            {t("points")}
-          </span>
-          {/* Nothing new appears until the child has actually earned a level,
-              so level 1 looks exactly as it always did. */}
-          {level > 1 && (
-            <span className="rounded-full bg-secondary px-2 py-0.5 font-display text-xs font-black tabular-nums text-primary">
-              {t("levelShort", { level })}
-            </span>
-          )}
-        </div>
-
-        <ComboMeter score={state.score} />
-
-        {/* Read-only on purpose: everything up here is for looking at, and
-            everything to tap lives in the bar at the bottom, under the thumb. */}
-        <div className="flex shrink-0 items-center gap-2">
-          {syncStatus && <SyncBadge status={syncStatus} />}
-          <CoinCount coins={stable.coins} className="px-3 py-1 text-base" />
-        </div>
-      </header>
-
-      {settings.goalEnabled && (
-        <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
-          <motion.div
-            className="h-full rounded-full bg-correct"
-            animate={{ width: `${goalFraction * 100}%` }}
-            transition={{ type: "spring", stiffness: 160, damping: 24 }}
-          />
-        </div>
-      )}
-
-      {settings.timerEnabled && (
-        <TimerBar
-          askedAt={state.askedAt}
-          seconds={settings.timerSec}
-          running={state.phase === "asking" && !state.paused}
-        />
-      )}
+      <GameHud
+        score={state.score}
+        level={level}
+        coins={stable.coins}
+        syncStatus={syncStatus}
+        goal={settings.goalEnabled ? settings.goalTarget : null}
+        timer={
+          settings.timerEnabled
+            ? {
+                askedAt: state.askedAt,
+                seconds: settings.timerSec,
+                running: state.phase === "asking" && !state.paused,
+              }
+            : null
+        }
+      />
 
       {/* The play area takes the leftover height and centres in it, so the
           question sits under the child's eyeline on a tall tablet instead of

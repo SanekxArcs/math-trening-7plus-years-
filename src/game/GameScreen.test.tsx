@@ -337,6 +337,7 @@ describe("GameScreen", () => {
 
     const header = container.querySelector("header");
     expect(header).not.toBeNull();
-    expect(within(header!).getByText("5")).toBeInTheDocument();
+    // Found, not got: the points roll up to their new total rather than jump.
+    expect(await within(header!).findByText("5")).toBeInTheDocument();
   });
 });
