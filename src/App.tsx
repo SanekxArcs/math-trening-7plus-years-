@@ -20,6 +20,9 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<PlayRoute />} />
+      {/* Eager, unlike the dashboard: the child opens it every day. */}
+      <Route path="/pets" element={<PlayRoute view="pets" />} />
+      <Route path="/horse" element={<Navigate to="/pets" replace />} />
       <Route
         path="/parent/*"
         element={

@@ -41,6 +41,10 @@ function solveVisibleQuestion(): number {
   }
 }
 
+function coins(): number {
+  return JSON.parse(localStorage.getItem("math_master_stable") ?? "{}").coins;
+}
+
 function optionButtons() {
   return screen
     .getAllByRole("button")
@@ -153,6 +157,43 @@ describe("GameScreen", () => {
     }
   }, 20_000);
 
+  it("closes the picture hint when the next question arrives", async () => {
+    // The open state used to be a plain flag, so answering with the hint open
+    // carried it over and the next question showed its picture unasked.
+    const user = userEvent.setup();
+    renderGame({
+      difficulty: "medium",
+      ops: ["mul"],
+      timerEnabled: false,
+      goalEnabled: false,
+      visualHintEnabled: true,
+    });
+
+    await user.click(screen.getByRole("button", { name: /Show hint/ }));
+    expect(screen.getByText("Picture hint")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: `Answer ${solveVisibleQuestion()}` }));
+
+    expect(
+      await screen.findByRole("button", { name: /Show hint/ }, { timeout: 4000 }),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText("Picture hint")).not.toBeInTheDocument());
+  }, 10_000);
+
+  it("offers a picture hint for addition too", async () => {
+    const user = userEvent.setup();
+    renderGame({
+      difficulty: "medium",
+      ops: ["add"],
+      timerEnabled: false,
+      goalEnabled: false,
+      visualHintEnabled: true,
+    });
+
+    await user.click(screen.getByRole("button", { name: /Show hint/ }));
+    expect(screen.getByRole("button", { name: /Count on/ })).toBeInTheDocument();
+  });
+
   it("pauses on demand, and finishing ends the session", async () => {
     const user = userEvent.setup();
     renderGame({ timerEnabled: false, goalEnabled: false });
@@ -190,7 +231,11 @@ describe("GameScreen", () => {
 
     const header = container.querySelector("header");
     expect(header).not.toBeNull();
-    expect(within(header!).getByText("10")).toBeInTheDocument();
+    // The purse sits in the header too, and a fresh one also holds 10.
+    const points = within(header!)
+      .getAllByText("10")
+      .filter((element) => !element.closest('[role="img"]'));
+    expect(points).toHaveLength(1);
   });
 
   it("asks the same question again after a reload", async () => {
@@ -244,6 +289,38 @@ describe("GameScreen", () => {
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByRole("button", { name: "Play again" })).toBeInTheDocument();
     expect(within(dialog).queryByText(/Play level/)).toBeNull();
+  });
+
+  it("pays coins for a level won, and not again when the summary is reloaded", async () => {
+    const user = userEvent.setup();
+    const options = { difficulty: "easy" as const, timerEnabled: false, goalEnabled: true, goalTarget: 5 };
+    const first = renderGame(options);
+
+    const answer = solveVisibleQuestion();
+    await user.click(screen.getByRole("button", { name: `Answer ${answer}` }));
+
+    const dialog = await screen.findByRole("dialog");
+    // One coin for a goal of 5, plus the first win of the day.
+    expect(within(dialog).getByText(/\+1 coins/)).toBeInTheDocument();
+    expect(within(dialog).getByText("+5 first win today!")).toBeInTheDocument();
+    expect(coins()).toBe(16);
+
+    first.unmount();
+    renderGame(options);
+    await screen.findByRole("dialog");
+    expect(coins()).toBe(16);
+  });
+
+  it("pays nothing for stopping short of the goal", async () => {
+    const user = userEvent.setup();
+    renderGame({ timerEnabled: false, goalEnabled: true, goalTarget: 500 });
+
+    await user.click(screen.getByRole("button", { name: "Pause the game" }));
+    await user.click(screen.getByRole("button", { name: /Finish for now/ }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).queryByText(/coins/)).toBeNull();
+    expect(localStorage.getItem("math_master_stable")).toBeNull();
   });
 
   it("keeps the goal bar and points in step", async () => {

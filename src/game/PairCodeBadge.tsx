@@ -6,9 +6,9 @@ import { useI18n } from "@/i18n/useI18n";
 /**
  * The pairing code, always reachable from the game.
  *
- * Collapsed to a key icon by default so it is not something for a child to
- * fiddle with mid-question, and it sits clear of the answer tiles. Tapping
- * reveals the code and copies it.
+ * Collapsed to a key icon in the bottom bar so it is not something for a child
+ * to fiddle with mid-question. Tapping pops the code up above the bar, and
+ * tapping again copies it.
  */
 export function PairCodeBadge({ pairCode }: { pairCode: string }) {
   const { t } = useI18n();
@@ -37,41 +37,35 @@ export function PairCodeBadge({ pairCode }: { pairCode: string }) {
   };
 
   return (
-    <div
-      className="pointer-events-none fixed inset-x-0 z-40 flex justify-center"
-      // Clears the iOS home indicator and the numpad's bottom row.
-      style={{ bottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
-    >
-      <motion.button
+    <div className="relative">
+      <button
         type="button"
         onClick={reveal}
-        layout
         aria-expanded={open}
         aria-label={open ? t("copyCode") : t("pairingCode")}
-        className="pointer-events-auto flex items-center gap-2 rounded-full border border-border bg-card/90 px-3 py-2 text-muted-foreground shadow-lg backdrop-blur transition-colors hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
+        className="rounded-full p-2.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
       >
         {copied ? (
-          <Check className="size-4 text-correct" aria-hidden />
+          <Check className="size-5 text-correct" aria-hidden />
         ) : open ? (
-          <Copy className="size-4" aria-hidden />
+          <Copy className="size-5" aria-hidden />
         ) : (
-          <KeyRound className="size-4" aria-hidden />
+          <KeyRound className="size-5" aria-hidden />
         )}
+      </button>
 
-        <AnimatePresence initial={false}>
-          {open && (
-            <motion.span
-              key="code"
-              initial={{ opacity: 0, width: 0 }}
-              animate={{ opacity: 1, width: "auto" }}
-              exit={{ opacity: 0, width: 0 }}
-              className="overflow-hidden whitespace-nowrap font-display text-sm font-black tracking-[0.2em] text-foreground"
-            >
-              {pairCode}
-            </motion.span>
-          )}
-        </AnimatePresence>
-      </motion.button>
+      <AnimatePresence>
+        {open && (
+          <motion.span
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 6 }}
+            className="absolute bottom-full left-0 mb-3 whitespace-nowrap rounded-full border border-border bg-card px-4 py-2 font-display text-sm font-black tracking-[0.2em] text-foreground shadow-lg"
+          >
+            {pairCode}
+          </motion.span>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

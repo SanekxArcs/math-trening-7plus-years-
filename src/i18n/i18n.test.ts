@@ -102,6 +102,12 @@ describe("translate", () => {
       level: 14,
       name: "Zosia",
       when: "today",
+      coins: 15,
+      price: 16,
+      item: "Hay",
+      minutes: 17,
+      a: 18,
+      b: 19,
     };
     for (const lang of LANGS) {
       for (const key of KEYS) {

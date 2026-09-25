@@ -5,6 +5,8 @@ import { isLang } from "@/i18n/translations";
 import { useI18n } from "@/i18n/useI18n";
 import { useDeviceIdentity, useOutboxSync, useSyncedSettings } from "@/sync/useSync";
 import { useFactStats } from "@/sync/useFactStats";
+import { BackupSync } from "@/sync/BackupSync";
+import { PetsScreen } from "@/pets/PetsScreen";
 import { GameScreen } from "./GameScreen";
 import { PairCodeCard } from "./PairCodeCard";
 import { SetupScreen } from "./SetupScreen";
@@ -17,19 +19,27 @@ import { useLocalSettings } from "./useLocalSettings";
  * conditional: the synced branch calls Convex hooks, which cannot be called at
  * all when no client is configured.
  */
-export function PlayRoute() {
-  return convex ? <SyncedGame /> : <LocalGame />;
+export type PlayView = "game" | "pets";
+
+/**
+ * The pets live under the same roof as the game rather than on a route of
+ * its own, so it sits behind the same setup step and the same progress
+ * backup: coins spent in the shop are saved exactly like coins won.
+ */
+export function PlayRoute({ view = "game" }: { view?: PlayView }) {
+  return convex ? <SyncedGame view={view} /> : <LocalGame view={view} />;
 }
 
 /** No backend configured — the game still plays, it just records nothing. */
-function LocalGame() {
+function LocalGame({ view }: { view: PlayView }) {
   const [settings] = useLocalSettings();
   const { getStats, recordFacts } = useFactStats();
+  if (view === "pets") return <PetsScreen />;
   return <GameScreen settings={settings} onRecord={recordFacts} getStats={getStats} />;
 }
 
-function SyncedGame() {
-  const { identity, claim, unlink } = useDeviceIdentity();
+function SyncedGame({ view }: { view: PlayView }) {
+  const { identity, claim, link, unlink } = useDeviceIdentity();
   const { settings, locale, unlinked } = useSyncedSettings(identity);
   const { status, record } = useOutboxSync(identity);
   const { getStats, recordFacts } = useFactStats();
@@ -81,21 +91,22 @@ function SyncedGame() {
           const created = await claim(name, pin, chosenLocale, avatarEmoji);
           setCodeToConfirm(created.pairCode);
         }}
+        onRestore={async (pairCode, pin) => {
+          await link(pairCode, pin);
+        }}
       />
     );
   }
 
-  if (codeToConfirm) {
-    return (
-      <PairCodeCard
-        pairCode={codeToConfirm}
-        name={identity.name}
-        onDone={() => setCodeToConfirm(null)}
-      />
-    );
-  }
-
-  return (
+  const screen = codeToConfirm ? (
+    <PairCodeCard
+      pairCode={codeToConfirm}
+      name={identity.name}
+      onDone={() => setCodeToConfirm(null)}
+    />
+  ) : view === "pets" ? (
+    <PetsScreen />
+  ) : (
     <GameScreen
       settings={settings}
       onRecord={onRecord}
@@ -103,5 +114,12 @@ function SyncedGame() {
       getStats={getStats}
       pairCode={identity.pairCode}
     />
+  );
+
+  return (
+    <>
+      <BackupSync identity={identity} />
+      {screen}
+    </>
   );
 }

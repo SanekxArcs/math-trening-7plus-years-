@@ -55,6 +55,40 @@ export const settingsPatchFields = {
   adaptive: v.optional(v.boolean()),
 };
 
+const species = v.union(
+  v.literal("horse"),
+  v.literal("cat"),
+  v.literal("dog"),
+  v.literal("bunny"),
+  v.literal("unicorn"),
+);
+
+/** A pet exactly as the device's engine holds it; see src/engine/pet.ts. */
+export const petFields = v.object({
+  id: species,
+  species,
+  name: v.string(),
+  food: v.number(),
+  clean: v.number(),
+  happy: v.number(),
+  health: v.number(),
+  alive: v.boolean(),
+  updatedAt: v.number(),
+  diedAt: v.union(v.number(), v.null()),
+  vacation: v.boolean(),
+  lastPettedAt: v.number(),
+});
+
+export const progressFields = {
+  coins: v.number(),
+  lastBonusDay: v.union(v.string(), v.null()),
+  pets: v.array(petFields),
+  activeId: v.union(species, v.null()),
+  /** Device clock of the change this snapshot came from. Newest wins. */
+  savedAt: v.number(),
+  level: v.number(),
+};
+
 export default defineSchema({
   profiles: defineTable({
     name: v.string(),
@@ -71,6 +105,29 @@ export default defineSchema({
   })
     .index("by_pairCode", ["pairCode"])
     .index("by_deviceTokenHash", ["deviceTokenHash"]),
+
+  /**
+   * Extra devices linked to a profile after it was made — the tablet whose
+   * site data got cleared, or a second one. The device that created the
+   * profile keeps using `profiles.deviceTokenHash`, so linking a new one never
+   * signs the old one out.
+   */
+  devices: defineTable({
+    profileId: v.id("profiles"),
+    tokenHash: v.string(),
+    createdAt: v.number(),
+  }).index("by_profile_token", ["profileId", "tokenHash"]),
+
+  /**
+   * What the child has earned and keeps: coins, the pets, the level. One row
+   * per profile, backed up from the device so a cleared browser or a new
+   * tablet does not cost them their pets.
+   */
+  progress: defineTable({
+    profileId: v.id("profiles"),
+    ...progressFields,
+    updatedAt: v.number(),
+  }).index("by_profile", ["profileId"]),
 
   settings: defineTable({
     profileId: v.id("profiles"),

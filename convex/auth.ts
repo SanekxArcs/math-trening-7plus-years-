@@ -44,7 +44,15 @@ export async function checkDevice(
 ): Promise<Doc<"profiles"> | null> {
   const profile = await ctx.db.get(profileId);
   if (!profile) return null;
-  return safeEqual(profile.deviceTokenHash, sha256(deviceToken)) ? profile : null;
+  const tokenHash = sha256(deviceToken);
+  if (safeEqual(profile.deviceTokenHash, tokenHash)) return profile;
+
+  // A device linked later, with the pairing code and PIN.
+  const linked = await ctx.db
+    .query("devices")
+    .withIndex("by_profile_token", (q) => q.eq("profileId", profileId).eq("tokenHash", tokenHash))
+    .unique();
+  return linked ? profile : null;
 }
 
 /** The kid's device proves itself with a secret issued when the profile was made. */
@@ -53,10 +61,8 @@ export async function requireDevice(
   profileId: Id<"profiles">,
   deviceToken: string,
 ): Promise<Doc<"profiles">> {
-  const profile = await ctx.db.get(profileId);
-  if (!profile) throw new ConvexError("Unknown profile");
-  if (!safeEqual(profile.deviceTokenHash, sha256(deviceToken))) {
-    throw new ConvexError("Device is not linked to this profile");
-  }
+  if (!(await ctx.db.get(profileId))) throw new ConvexError("Unknown profile");
+  const profile = await checkDevice(ctx, profileId, deviceToken);
+  if (!profile) throw new ConvexError("Device is not linked to this profile");
   return profile;
 }

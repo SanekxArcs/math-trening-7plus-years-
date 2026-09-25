@@ -77,6 +77,18 @@ export const purgeProfile = internalMutation({
       .unique();
     if (settings) await ctx.db.delete(settings._id);
 
+    const devices = await ctx.db
+      .query("devices")
+      .withIndex("by_profile_token", (q) => q.eq("profileId", profile._id))
+      .collect();
+    for (const device of devices) await ctx.db.delete(device._id);
+
+    const progress = await ctx.db
+      .query("progress")
+      .withIndex("by_profile", (q) => q.eq("profileId", profile._id))
+      .unique();
+    if (progress) await ctx.db.delete(progress._id);
+
     await ctx.db.delete(profile._id);
     return { deleted: true, name: profile.name, attempts: attempts.length };
   },

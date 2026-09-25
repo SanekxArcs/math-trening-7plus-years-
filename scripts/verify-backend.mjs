@@ -228,6 +228,70 @@ await expectRejection(
 // Clean up after ourselves. Repeated runs would otherwise fill the deployment
 // with throwaway profiles that are indistinguishable, from the dashboard, from
 // a real child.
+console.log("\nProgress backup");
+const pet = (over = {}) => ({
+  id: "horse",
+  species: "horse",
+  name: "Bella",
+  food: 80,
+  clean: 80,
+  happy: 80,
+  health: 100,
+  alive: true,
+  updatedAt: Date.now(),
+  diedAt: null,
+  vacation: false,
+  lastPettedAt: 0,
+  ...over,
+});
+const backup = (over = {}) => ({
+  coins: 42,
+  lastBonusDay: null,
+  pets: [pet()],
+  activeId: "horse",
+  savedAt: 2000,
+  level: 3,
+  ...over,
+});
+
+const empty = await client.query(anyApi.progress.forDevice, { profileId, deviceToken });
+check("a new profile has no backup yet", empty.status === "ok" && empty.progress === null);
+
+await client.mutation(anyApi.progress.save, { profileId, deviceToken, progress: backup() });
+const stored = await client.query(anyApi.progress.forDevice, { profileId, deviceToken });
+check("stores coins, pets and level", stored.progress?.coins === 42 && stored.progress?.pets?.[0]?.name === "Bella" && stored.progress?.level === 3);
+
+await client.mutation(anyApi.progress.save, {
+  profileId,
+  deviceToken,
+  progress: backup({ coins: 1, savedAt: 1000, level: 5 }),
+});
+const afterOld = await client.query(anyApi.progress.forDevice, { profileId, deviceToken });
+check("an older copy does not overwrite a newer one", afterOld.progress?.coins === 42);
+check("but a higher level is still kept", afterOld.progress?.level === 5);
+
+const refused = await client.mutation(anyApi.progress.save, {
+  profileId,
+  deviceToken: "not-a-real-token",
+  progress: backup({ coins: 9999, savedAt: 9e12 }),
+});
+check("a wrong device token cannot write", refused.status === "unlinked");
+
+console.log("\nLinking another device");
+await expectRejection(
+  "a wrong PIN does not link a device",
+  client.action(anyApi.secure.linkDevice, { pairCode, pin: "9999" }),
+);
+const linked = await client.action(anyApi.secure.linkDevice, { pairCode, pin });
+check("the right code and PIN link a device", linked.profileId === profileId && linked.deviceToken !== deviceToken);
+const onPhone = await client.query(anyApi.progress.forDevice, {
+  profileId,
+  deviceToken: linked.deviceToken,
+});
+check("the linked device sees the same pets and coins", onPhone.progress?.coins === 42 && onPhone.progress?.pets?.[0]?.name === "Bella");
+const onTablet = await client.query(anyApi.progress.forDevice, { profileId, deviceToken });
+check("the first device stays signed in", onTablet.status === "ok");
+
 console.log("\nCleanup");
 try {
   const { execFileSync } = await import("node:child_process");

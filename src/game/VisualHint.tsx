@@ -117,7 +117,8 @@ export function VisualHint({ hint, mode, litGroups = null }: VisualHintProps) {
               : { type: "spring", stiffness: 300, damping: 20 }
           }
           className={cn(
-            "rounded-xl border-2 border-primary/20 bg-card p-2 shadow-sm",
+            "relative rounded-xl border-2 bg-card p-2 shadow-sm transition-colors",
+            litGroups !== null && groupIndex < litGroups ? "border-primary/60" : "border-primary/20",
             mode === "boxes" && "grid gap-1",
             mode === "rows" && "flex w-12 flex-col gap-1",
             mode === "columns" && "flex h-12 flex-row items-end gap-1",
@@ -131,6 +132,18 @@ export function VisualHint({ hint, mode, litGroups = null }: VisualHintProps) {
               : {}
           }
         >
+          {/* The running total pinned to each group as it is counted, so the
+              skip-count sequence can be read straight off the picture. */}
+          {litGroups !== null && groupIndex < litGroups && (
+            <motion.span
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", stiffness: 500, damping: 16 }}
+              className="absolute -right-2 -top-2 z-10 min-w-5 rounded-full bg-primary px-1 text-center text-[10px] font-black leading-5 tabular-nums text-primary-foreground shadow"
+            >
+              {(groupIndex + 1) * perGroup}
+            </motion.span>
+          )}
           {Array.from({ length: perGroup }, (_, markIndex) => (
             <motion.span
               key={markIndex}

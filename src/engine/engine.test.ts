@@ -138,8 +138,8 @@ describe("generateProblem", () => {
   });
 
   it("only attaches a picture hint to multiplication and division", () => {
-    // "3 groups of 4" explains a product. For 8 + 4 it would just restate the
-    // question, so the hint button must not appear there at all.
+    // "3 groups of 4" explains a product. + and − get their picture too, but
+    // it is drawn from the operands in the UI, so the model carries nothing.
     const rng = seededRng(101);
     const config = settings({ ops: ALL_OPS, includeZeroOne: true });
 

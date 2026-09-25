@@ -131,3 +131,31 @@ export const parentLogin = action({
     return { token, profileId: profile._id, name: profile.name, expiresAt };
   },
 });
+
+/**
+ * Puts an existing profile back on a device: the tablet whose site data was
+ * cleared, or a second one. The same pairing code and PIN as the dashboard,
+ * because this hands out a device token — enough to write to the child's
+ * history and read their progress.
+ */
+export const linkDevice = action({
+  args: { pairCode: v.string(), pin: v.string() },
+  handler: async (
+    ctx,
+    { pairCode, pin },
+  ): Promise<{ profileId: Id<"profiles">; pairCode: string; deviceToken: string; name: string }> => {
+    const profile = await ctx.runQuery(internal.profiles.findByPairCode, {
+      pairCode: pairCode.trim().toUpperCase(),
+    });
+    if (!profile || !safeEqual(profile.pinHash, hashPin(pin, profile.pinSalt))) {
+      throw new ConvexError("That pairing code and PIN do not match");
+    }
+
+    const deviceToken = generateToken();
+    await ctx.runMutation(internal.profiles.addDevice, {
+      profileId: profile._id,
+      tokenHash: sha256(deviceToken),
+    });
+    return { profileId: profile._id, pairCode: profile.pairCode, deviceToken, name: profile.name };
+  },
+});

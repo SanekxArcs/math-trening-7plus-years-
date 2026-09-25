@@ -66,7 +66,26 @@ export function useDeviceIdentity() {
     [],
   );
 
-  return { identity, claim, unlink };
+  /**
+   * Puts an existing profile on this device with the pairing code and PIN —
+   * the way back after site data is cleared, or onto a second tablet.
+   */
+  const link = useCallback(async (pairCode: string, pin: string) => {
+    if (!convex) throw new Error("No backend configured");
+
+    const linked = await convex.action(api.secure.linkDevice, { pairCode, pin });
+    const next: DeviceIdentity = {
+      profileId: linked.profileId,
+      deviceToken: linked.deviceToken,
+      pairCode: linked.pairCode,
+      name: linked.name,
+    };
+    await saveIdentity(next);
+    setIdentity(next);
+    return next;
+  }, []);
+
+  return { identity, claim, link, unlink };
 }
 
 /**

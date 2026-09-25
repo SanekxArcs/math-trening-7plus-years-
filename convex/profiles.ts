@@ -59,3 +59,10 @@ export const insert = internalMutation({
     return { profileId, pairCode: args.pairCode };
   },
 });
+
+export const addDevice = internalMutation({
+  args: { profileId: v.id("profiles"), tokenHash: v.string() },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("devices", { ...args, createdAt: Date.now() });
+  },
+});

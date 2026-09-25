@@ -1,8 +1,19 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Eye, Flag, Pause, Play, Settings2, Trophy } from "lucide-react";
 import { Link } from "react-router-dom";
-import { displayPoints, goalForLevel, hasNextLevel, settingsForLevel } from "@/engine";
+import {
+  displayPoints,
+  goalForLevel,
+  hasNextLevel,
+  SPECIES,
+  activePet,
+  petNeedingCare,
+  payReward,
+  sessionReward,
+  settingsForLevel,
+  type Reward,
+} from "@/engine";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/useI18n";
 import { ComboMeter } from "./ComboMeter";
@@ -10,7 +21,7 @@ import { HalfHalfButton } from "./HalfHalfButton";
 import { Numpad } from "./Numpad";
 import { OptionGrid } from "./OptionGrid";
 import { TimerBar } from "./TimerBar";
-import { HintPanel } from "./HintPanel";
+import { HintPanel, hasPictureHint } from "./HintPanel";
 import { PairCodeBadge } from "./PairCodeBadge";
 import { celebrateCombo, celebrateWin } from "./celebrate";
 import { playSound } from "./sound";
@@ -18,6 +29,9 @@ import { useGame, type AttemptRecord, type StatsSource } from "./useGame";
 import { useLocalSession } from "./useLocalSession";
 import { useLocalLevel } from "./useLocalLevel";
 import { SyncBadge } from "./SyncBadge";
+import { BottomBar } from "./BottomBar";
+import { CoinCount } from "@/pets/CoinCount";
+import { updateStable, useLiveStable, useStable } from "./useStable";
 import type { GameSettings } from "@/engine";
 import type { SyncStatus } from "@/sync/useSync";
 
@@ -45,7 +59,13 @@ export function GameScreen({
   pairCode,
 }: GameScreenProps) {
   const { t } = useI18n();
-  const [hintOpen, setHintOpen] = useState(false);
+  /**
+   * The question the hint was opened on, not a plain open flag. A flag outlived
+   * the question: answer with the picture showing and the next problem arrived
+   * with its hint already open — free help the child never asked for. Tying it
+   * to the question id closes it on every new question with no effect to run.
+   */
+  const [hintFor, setHintFor] = useState<number | null>(null);
 
   /**
    * The child's level, laid over the parent's settings.
@@ -103,12 +123,52 @@ export function GameScreen({
     celebrateWin();
   }, [state.won, settings.soundEnabled]);
 
+  /**
+   * Paying out, once per finished session.
+   *
+   * Keyed on the moment the session *becomes* finished, not on it being
+   * finished: a reload of the summary screen restores a finished session, and
+   * paying it again there would make refreshing a coin machine.
+   */
+  const stable = useLiveStable(useStable());
+  const shown = activePet(stable);
+  /** The pet the nudges are about: whoever needs care, else whoever is on screen. */
+  const needy = petNeedingCare(stable);
+  const [reward, setReward] = useState<Reward | null>(null);
+  const wasFinished = useRef(state.phase === "finished");
+  useEffect(() => {
+    const finished = state.phase === "finished";
+    if (finished === wasFinished.current) return;
+    wasFinished.current = finished;
+    if (!finished) {
+      setReward(null);
+      return;
+    }
+    const now = Date.now();
+    let paid: Reward | null = null;
+    updateStable((current) => {
+      paid = sessionReward(
+        current,
+        {
+          won: state.won,
+          goalEnabled: settings.goalEnabled,
+          goal: settings.goalTarget,
+          points: displayPoints(state.score),
+        },
+        now,
+      );
+      return paid ? payReward(current, paid, now) : current;
+    });
+    setReward(paid);
+  }, [state.phase, state.won, state.score, settings.goalEnabled, settings.goalTarget]);
+
   const goalFraction = useMemo(() => {
     if (!settings.goalEnabled) return 0;
     return Math.min(1, displayPoints(state.score) / settings.goalTarget);
   }, [state.score, settings.goalEnabled, settings.goalTarget]);
 
-  const canShowHint = settings.visualHintEnabled && problem.hint !== null;
+  const canShowHint = settings.visualHintEnabled && hasPictureHint(problem);
+  const hintOpen = canShowHint && hintFor === state.questionId;
 
   /**
    * Moving up a level. The level is banked first, then the board is cleared:
@@ -120,13 +180,17 @@ export function GameScreen({
     game.restart();
   };
 
-  const openHint = () => {
-    setHintOpen((open) => !open);
-    if (!hintOpen) game.useVisualHint();
+  const toggleHint = () => {
+    if (hintOpen) {
+      setHintFor(null);
+      return;
+    }
+    setHintFor(state.questionId);
+    game.useVisualHint();
   };
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col gap-5 px-4 pb-16 pt-5">
+    <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col gap-5 px-4 pb-28 pt-5">
       <header className="flex items-center justify-between gap-3">
         <div className="flex items-baseline gap-2">
           <motion.span
@@ -151,27 +215,12 @@ export function GameScreen({
 
         <ComboMeter score={state.score} />
 
-        {syncStatus && <SyncBadge status={syncStatus} />}
-
-        {/* Deliberately next to the dashboard link rather than down among the
-            answers: stopping is a grown-up-shaped action, and a big friendly
-            button by the tiles is one a child taps by accident mid-combo. */}
-        <button
-          type="button"
-          onClick={game.pause}
-          aria-label={t("pauseGame")}
-          className="shrink-0 rounded-full bg-card p-2.5 text-muted-foreground shadow-sm transition-colors hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
-        >
-          <Pause className="size-5" aria-hidden />
-        </button>
-
-        <Link
-          to="/parent"
-          aria-label={t("parentDashboard")}
-          className="shrink-0 rounded-full bg-card p-2.5 text-muted-foreground shadow-sm transition-colors hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
-        >
-          <Settings2 className="size-5" aria-hidden />
-        </Link>
+        {/* Read-only on purpose: everything up here is for looking at, and
+            everything to tap lives in the bar at the bottom, under the thumb. */}
+        <div className="flex shrink-0 items-center gap-2">
+          {syncStatus && <SyncBadge status={syncStatus} />}
+          <CoinCount coins={stable.coins} className="px-3 py-1 text-base" />
+        </div>
       </header>
 
       {settings.goalEnabled && (
@@ -274,8 +323,14 @@ export function GameScreen({
         {canShowHint && (
           <button
             type="button"
-            onClick={openHint}
-            className="flex items-center gap-2 rounded-full bg-card px-5 py-3 font-display font-bold text-muted-foreground shadow-md transition-colors hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
+            onClick={toggleHint}
+            aria-expanded={hintOpen}
+            className={cn(
+              "flex items-center gap-2 rounded-full px-5 py-3 font-display font-bold shadow-md transition-colors focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none",
+              hintOpen
+                ? "bg-primary/10 text-primary"
+                : "bg-card text-muted-foreground hover:text-foreground",
+            )}
           >
             <Eye className="size-5" aria-hidden />
             {hintOpen ? t("hideHint") : t("showHint")}
@@ -289,16 +344,17 @@ export function GameScreen({
       </section>
 
       <AnimatePresence>
-        {hintOpen && problem.hint && (
+        {hintOpen && (
           <motion.section
+            key={state.questionId}
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden rounded-[--radius-lg] bg-muted/40 p-4"
+            className="overflow-hidden"
           >
             {/* Keyed per question: a new problem gets a fresh panel rather than
                 inheriting a half-finished count from the previous one. */}
-            <HintPanel key={state.questionId} hint={problem.hint} answer={problem.answer} />
+            <HintPanel problem={problem} onClose={() => setHintFor(null)} />
           </motion.section>
         )}
       </AnimatePresence>
@@ -372,6 +428,31 @@ export function GameScreen({
                 })}
               </p>
 
+              {reward && (
+                <motion.div
+                  initial={{ scale: 0.6, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 18, delay: 0.3 }}
+                  className="mt-4 rounded-[--radius-lg] bg-combo/20 px-4 py-3 font-display font-black text-combo-foreground"
+                >
+                  <p className="text-2xl">🪙 {t("coinsEarned", { coins: reward.coins })}</p>
+                  {reward.bonus > 0 && (
+                    <p className="text-sm">{t("dailyBonus", { coins: reward.bonus })}</p>
+                  )}
+                </motion.div>
+              )}
+
+              <Link
+                to="/pets"
+                className={cn(
+                  "mt-3 flex items-center justify-center gap-2 rounded-[--radius-lg] bg-secondary py-3 font-display font-bold text-secondary-foreground focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none",
+                  needy && "animate-pulse",
+                )}
+              >
+                <span aria-hidden>{SPECIES[needy?.species ?? shown?.species ?? "horse"].emoji}</span>
+                {needy ? t("horseNeedsYou", { name: needy.name }) : t("visitHorse")}
+              </Link>
+
               {/* The next level is offered only for a goal actually reached.
                   A child who stopped for lunch is not moved up, and neither is
                   one whose goal is already at the ceiling — a "next level" that
@@ -410,7 +491,49 @@ export function GameScreen({
         )}
       </AnimatePresence>
 
-      {pairCode && <PairCodeBadge pairCode={pairCode} />}
+      <BottomBar>
+        <div className="flex items-center gap-2 justify-self-start">
+          <Link
+            to="/parent"
+            aria-label={t("parentDashboard")}
+            className="rounded-full p-2.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
+          >
+            <Settings2 className="size-5" aria-hidden />
+          </Link>
+          {pairCode && <PairCodeBadge pairCode={pairCode} />}
+        </div>
+
+        {/* Down here, but in its own bar below the lifelines rather than among
+            the tiles, so it is easy to reach and hard to hit by accident. And
+            a stray tap only pauses — nothing is lost. */}
+        <button
+          type="button"
+          onClick={game.pause}
+          aria-label={t("pauseGame")}
+          className="flex size-14 items-center justify-center justify-self-center rounded-full bg-secondary text-secondary-foreground shadow-md transition-colors hover:bg-accent focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
+        >
+          <Pause className="size-6" aria-hidden />
+        </button>
+
+        <Link
+          to="/pets"
+          aria-label={t("openStable", { coins: stable.coins })}
+          className="relative flex items-center gap-2 justify-self-end rounded-full bg-primary py-2 pl-3 pr-5 font-display text-lg font-black text-primary-foreground shadow-md focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
+        >
+          <span className={cn("text-3xl leading-none", shown && !shown.alive && "grayscale")} aria-hidden>
+            {SPECIES[shown?.species ?? "horse"].emoji}
+          </span>
+          {t("pets")}
+          {/* A dot rather than words: it has to read at a glance, mid-game,
+              without pulling attention off the question. */}
+          {needy && (
+            <span className="absolute -right-0.5 -top-0.5 flex size-4">
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-wrong opacity-75" />
+              <span className="relative inline-flex size-4 rounded-full border-2 border-card bg-wrong" />
+            </span>
+          )}
+        </Link>
+      </BottomBar>
     </main>
   );
 }

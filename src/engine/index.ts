@@ -12,6 +12,7 @@ export * from "./scoring.ts";
 export * from "./mastery.ts";
 export * from "./timing.ts";
 export * from "./level.ts";
+export * from "./pet.ts";
 
 export interface NextQuestionOptions {
   /** What the child already knows, keyed by `factId`. */

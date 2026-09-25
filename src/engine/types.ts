@@ -27,7 +27,9 @@ export interface GameSettings {
 /**
  * Groups of dots for the visual hint: `groups` rows of `perGroup` items.
  * Only multiplication and division carry one — it is the only place where
- * "3 groups of 4" explains the answer rather than just restating it.
+ * "3 groups of 4" explains the answer rather than just restating it. Addition
+ * and subtraction have a picture hint too, but it is ten-frames drawn straight
+ * from `a` and `b`, so there is nothing extra to store.
  */
 export interface HintModel {
   groups: number;

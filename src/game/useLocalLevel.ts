@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
 const KEY = "math_master_level";
 
@@ -22,20 +22,36 @@ export function readLevel(): number {
   }
 }
 
+/** Only used when storage refuses writes, so private mode keeps the level this sitting. */
+let memory = 1;
+const listeners = new Set<() => void>();
+
+function getSnapshot(): number {
+  return Math.max(readLevel(), memory);
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+/**
+ * Moves the level up to at least `level`, never down. Shared by the "next
+ * level" button and the backup restoring a level earned on another device.
+ */
+export function raiseLevel(level: number): void {
+  if (level <= getSnapshot()) return;
+  try {
+    localStorage.setItem(KEY, String(level));
+  } catch {
+    // Private mode or a full quota: they still get the level this sitting.
+    memory = level;
+  }
+  for (const listener of listeners) listener();
+}
+
 export function useLocalLevel() {
-  const [level, setLevel] = useState(readLevel);
-
-  const advance = useCallback(() => {
-    setLevel((current) => {
-      const next = current + 1;
-      try {
-        localStorage.setItem(KEY, String(next));
-      } catch {
-        // Private mode or a full quota: they still get the level this sitting.
-      }
-      return next;
-    });
-  }, []);
-
+  const level = useSyncExternalStore(subscribe, getSnapshot, () => 1);
+  const advance = useCallback(() => raiseLevel(getSnapshot() + 1), []);
   return [level, advance] as const;
 }

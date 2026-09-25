@@ -12,6 +12,7 @@ import type * as attempts from "../attempts.js";
 import type * as auth from "../auth.js";
 import type * as parent from "../parent.js";
 import type * as profiles from "../profiles.js";
+import type * as progress from "../progress.js";
 import type * as secure from "../secure.js";
 import type * as sha256 from "../sha256.js";
 import type * as testing from "../testing.js";
@@ -27,6 +28,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   parent: typeof parent;
   profiles: typeof profiles;
+  progress: typeof progress;
   secure: typeof secure;
   sha256: typeof sha256;
   testing: typeof testing;
