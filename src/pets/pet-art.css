@@ -61,6 +61,21 @@
 
 .mood-vacation .pet-head { animation: pet-sway 4s ease-in-out infinite; }
 
+/* Asleep: head down, breathing slow and deep, tail still. */
+.mood-asleep .pet-head {
+  animation: none;
+  transform: rotate(12deg);
+}
+.mood-asleep .pet-body { animation-duration: 4.8s; }
+.mood-asleep :is(.pet-tail, .pet-ear, .pet-eye) { animation: none; }
+
+.pet-z {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+  animation: pet-z 2.7s ease-out infinite;
+}
+
 /* Gone: faded, floating, still. */
 .mood-gone {
   filter: grayscale(1);
@@ -94,6 +109,11 @@
   .pet * {
     animation: none !important;
   }
+}
+/* Not drifting, the z's still have to be seen: stacked where they would rise. */
+.pet--still .pet-z { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .pet .pet-z { opacity: 1; }
 }
 
 @keyframes pet-breathe {
@@ -158,4 +178,10 @@
 @keyframes pet-rumble {
   0%, 100% { transform: translateX(0); opacity: 0.4; }
   50% { transform: translateX(3px); opacity: 1; }
+}
+
+@keyframes pet-z {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.6); }
+  20% { opacity: 1; }
+  100% { opacity: 0; transform: translate(14px, -34px) scale(1.2); }
 }

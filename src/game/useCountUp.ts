@@ -9,15 +9,18 @@ import { useReducedMotion } from "motion/react";
  * points drain away is a punishment in itself, and a board that still shows the
  * old total after a restart reads as a bug. It starts at the target, too, so a
  * score restored after a reload is simply there rather than counted up from 0.
+ *
+ * `from` overrides that for a number that should be seen arriving — the
+ * totals on a summary card, counted up from 0 as the card opens.
  */
-export function useCountUp(target: number, durationMs = 650): number {
+export function useCountUp(target: number, durationMs = 650, from?: number): number {
   const reduce = useReducedMotion();
-  const [shown, setShown] = useState(target);
-  const current = useRef(target);
+  const [shown, setShown] = useState(from ?? target);
+  const current = useRef(from ?? target);
 
   useLayoutEffect(() => {
-    const from = current.current;
-    if (reduce || target <= from) {
+    const origin = current.current;
+    if (reduce || target <= origin) {
       current.current = target;
       setShown(target);
       return;
@@ -32,7 +35,7 @@ export function useCountUp(target: number, durationMs = 650): number {
       start ??= now;
       const t = Math.min(1, Math.max(0, (now - start) / durationMs));
       const eased = 1 - (1 - t) ** 3;
-      current.current = Math.round(from + (target - from) * eased);
+      current.current = Math.round(origin + (target - origin) * eased);
       setShown(current.current);
       if (t < 1) frame = requestAnimationFrame(tick);
     };

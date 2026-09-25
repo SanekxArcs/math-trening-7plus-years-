@@ -49,6 +49,7 @@ export function PetArt({ species, mood = "ok", mud = 0, animated = false, classN
       <text x="100" y="158" fontSize="150" textAnchor="middle">
         {SPECIES[species].emoji}
       </text>
+      {mood === "asleep" && <Zzz x={150} y={40} />}
     </svg>
   );
 }
@@ -147,6 +148,7 @@ function Horse({ className, mood, mud }: { className: string; mood: Mood; mud: n
           <path d="M150 36c6-8 18-6 20 4-6-3-12 0-14 6-2-4-5-6-6-10z" fill={MANE} />
         </g>
 
+        {mood === "asleep" && <Zzz x={176} y={30} />}
         {mood === "gone" && (
           <ellipse className="pet-halo" cx="156" cy="16" rx="14" ry="4" fill="none" stroke="#facc15" strokeWidth="3" />
         )}
@@ -188,7 +190,36 @@ function Leg({ x, fill }: { x: number; fill: string }) {
   );
 }
 
+/** Three z's drifting up and away, one after another. */
+function Zzz({ x, y }: { x: number; y: number }) {
+  return (
+    <g transform={`translate(${x} ${y})`} fill="#8b7cf6" fontWeight="900" fontFamily="system-ui, sans-serif">
+      {[0, 1, 2].map((i) => (
+        <text
+          key={i}
+          className="pet-z"
+          x={i * 8}
+          y={-i * 11}
+          style={{ animationDelay: `${i * 0.9}s` }}
+          fontSize={14 + i * 5}
+        >
+          z
+        </text>
+      ))}
+    </g>
+  );
+}
+
 function Eye({ mood }: { mood: Mood }) {
+  if (mood === "asleep") {
+    // Closed and content: a lash line, curved down, with a little lash.
+    return (
+      <g stroke={EYE} strokeWidth="2.8" fill="none" strokeLinecap="round">
+        <path d="M156 50q6 5 12 0" />
+        <path d="M158 53l-2 3" strokeWidth="1.8" />
+      </g>
+    );
+  }
   if (mood === "happy") {
     return <path d="M157 52q5-7 10 0" stroke={EYE} strokeWidth="2.8" fill="none" strokeLinecap="round" />;
   }

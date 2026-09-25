@@ -35,6 +35,32 @@ describe("PetsScreen", () => {
     localStorage.clear();
   });
 
+  it("lets a sleeping pet sleep: no care until a sum is solved", () => {
+    const horse = newPet("horse", "Sparky", Date.now());
+    const stable: Stable = { ...NEW_STABLE, coins: 20, pets: [horse], activeId: "horse", savedAt: 1, asleepSince: 1 };
+    localStorage.setItem(KEY, JSON.stringify(stable));
+    renderPets();
+
+    expect(screen.getByRole("status")).toHaveTextContent("Sparky is fast asleep");
+    expect(screen.getByRole("button", { name: "Hay, 2 coins" })).toBeDisabled();
+  });
+
+  it("holds the paused game, with the way to finish for today", () => {
+    seed([newPet("horse", "Sparky", Date.now())], 10);
+    localStorage.setItem(
+      "math_master_session",
+      JSON.stringify({
+        savedAt: Date.now(),
+        score: { rawPoints: 40, goodStreak: 2, badStreak: 0, bestStreak: 3, correct: 4, wrong: 1 },
+      }),
+    );
+    renderPets();
+
+    const paused = screen.getByRole("region", { name: "Game paused" });
+    expect(within(paused).getByRole("button", { name: /Finish for today/ })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Keep playing" })).toBeInTheDocument();
+  });
+
   it("starts with a free horse, named by the child", async () => {
     const user = userEvent.setup();
     renderPets();

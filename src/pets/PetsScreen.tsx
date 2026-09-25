@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowLeft, Hand, Heart, Plus } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Hand, Heart, Moon, Pause, Play, Plus } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import {
   PET_COOLDOWN_MS,
   REVIVE_PRICE,
@@ -13,12 +13,13 @@ import {
   canPet,
   choose,
   cuddle,
+  isAsleep,
   itemsFor,
-  moodOf,
   needsCare,
   onVacation,
   revive,
   setVacation,
+  shownMood,
   whyNot,
   whyNotAdopt,
   type ItemKind,
@@ -34,6 +35,8 @@ import { useI18n } from "@/i18n/useI18n";
 import type { TranslationKey } from "@/i18n/translations";
 import { updateStable, useLiveStable, useStable } from "@/game/useStable";
 import { BottomBar } from "@/game/BottomBar";
+import { SessionStats, ghostActionClass } from "@/game/GameDialog";
+import { readSession } from "@/game/useLocalSession";
 import { CoinCount } from "./CoinCount";
 import { PetArt, hasArt } from "./PetArt";
 
@@ -45,6 +48,7 @@ const MOOD_TEXT: Record<Mood, TranslationKey> = {
   sad: "moodSad",
   sick: "moodSick",
   vacation: "moodVacation",
+  asleep: "moodAsleep",
   gone: "moodGone",
 };
 
@@ -108,12 +112,21 @@ const GROWN_UP_PRESS_MS = 2000;
  * Where the coins go. Deliberately a screen of its own rather than a panel in
  * the game: the maths is where coins are earned, and nothing here should be
  * one stray tap away from a question.
+ *
+ * It is also where pause leads. With a game under way it opens on the paused
+ * session — its numbers, and the way to finish for today — and its one big
+ * button carries on playing.
  */
 export function PetsScreen() {
   const { t } = useI18n();
   const stable = useLiveStable(useStable());
   const pet = activePet(stable);
   const [shopOpen, setShopOpen] = useState(false);
+  // Read once: nothing on this screen changes the session.
+  const [session] = useState(() => {
+    const saved = readSession();
+    return saved && !saved.stopped && !saved.won ? saved : null;
+  });
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col gap-5 px-4 pb-28 pt-5">
@@ -121,6 +134,8 @@ export function PetsScreen() {
         <h1 className="font-display text-2xl font-black">{t("myPets")}</h1>
         <CoinCount coins={stable.coins} />
       </header>
+
+      {session && <PausedGame score={session.score} />}
 
       {pet ? (
         <>
@@ -138,15 +153,54 @@ export function PetsScreen() {
       </AnimatePresence>
 
       <BottomBar>
+        {/* The same raised centre button as in the game, now saying "play":
+            the way back is the button that brought the child here. */}
         <Link
           to="/"
-          className="col-span-3 flex items-center justify-center gap-2 rounded-full border-b-4 border-black/15 bg-linear-to-b from-primary to-primary/80 py-3 font-display text-lg font-black text-primary-foreground shadow-[0_6px_16px_-6px_var(--primary)] transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0.5 active:scale-[0.98] active:border-b-2 focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
+          aria-label={session ? t("keepPlaying") : t("backToGame")}
+          className="col-start-2 -my-5 flex size-18 items-center justify-center justify-self-center rounded-full border-b-4 border-black/15 bg-linear-to-b from-primary to-primary/80 text-primary-foreground shadow-[0_8px_18px_-6px_var(--primary)] ring-4 ring-card transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0.5 active:scale-95 active:border-b-2 focus-visible:ring-ring focus-visible:outline-none"
         >
-          <ArrowLeft className="size-5" aria-hidden />
-          {t("backToGame")}
+          <Play className="ml-1 size-8" fill="currentColor" strokeWidth={0} aria-hidden />
         </Link>
       </BottomBar>
     </main>
+  );
+}
+
+/**
+ * The game waiting behind this screen: what the run has made so far, and the
+ * way to call it a day. Finishing hands over to the game screen, which pays
+ * the session out and puts the pets to bed.
+ */
+function PausedGame({ score }: { score: Parameters<typeof SessionStats>[0]["score"] }) {
+  const { t } = useI18n();
+  const navigate = useNavigate();
+  return (
+    <motion.section
+      initial={{ opacity: 0, y: -12 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="relative rounded-xl border border-border/70 bg-card/85 p-4 shadow-[0_12px_32px_-16px_oklch(0.4_0.16_295/0.45)] backdrop-blur-md"
+      aria-label={t("gamePaused")}
+    >
+      <div className="flex items-center gap-3">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-linear-to-b from-primary to-primary/75 text-primary-foreground shadow-[0_4px_12px_-4px_var(--primary)]">
+          <Pause className="size-5" fill="currentColor" strokeWidth={0} aria-hidden />
+        </span>
+        <div className="min-w-0 text-left">
+          <h2 className="font-display text-lg font-black leading-tight">{t("gamePaused")}</h2>
+          <p className="text-xs text-muted-foreground">{t("gamePausedBlurb")}</p>
+        </div>
+      </div>
+      <SessionStats score={score} className="mt-3" />
+      <button
+        type="button"
+        onClick={() => navigate("/", { state: { finishToday: true } })}
+        className={cn(ghostActionClass, "mt-1 py-2")}
+      >
+        <Moon className="size-4" aria-hidden />
+        {t("finishToday")}
+      </button>
+    </motion.section>
   );
 }
 
@@ -338,7 +392,9 @@ function Overlay({ children }: { children: React.ReactNode }) {
 
 function Stall({ stable, pet }: { stable: Stable; pet: Pet }) {
   const { t } = useI18n();
-  const mood = moodOf(pet);
+  const mood = shownMood(stable, pet);
+  /** Everything waits for morning: a sleeping pet is not fed or played with. */
+  const asleep = isAsleep(stable) && pet.alive;
   /** The emoji that floats up from the pet after something is used. */
   const [reaction, setReaction] = useState<{ id: number; emoji: string } | null>(null);
   const [grownUpOpen, setGrownUpOpen] = useState(false);
@@ -375,12 +431,15 @@ function Stall({ stable, pet }: { stable: Stable; pet: Pet }) {
       <section
         className={cn(
           "relative flex flex-col items-center overflow-hidden rounded-[--radius-xl] p-6 shadow-lg",
-          pet.alive
+          asleep
+            ? "bg-linear-to-b from-indigo-300 via-indigo-200 to-violet-200 dark:from-indigo-950 dark:via-indigo-950 dark:to-violet-950"
+            : pet.alive
             ? "bg-gradient-to-b from-sky-200 via-sky-100 to-lime-200 dark:from-sky-900 dark:via-sky-950 dark:to-lime-950"
             : "bg-gradient-to-b from-indigo-200 to-violet-100 dark:from-indigo-950 dark:to-violet-950",
         )}
       >
-        <PetFigure pet={pet} mood={mood} onPet={petReady ? pat : undefined} />
+        {asleep && <NightSky />}
+        <PetFigure pet={pet} mood={mood} onPet={petReady && !asleep ? pat : undefined} />
 
         <AnimatePresence>
           {reaction && (
@@ -422,7 +481,9 @@ function Stall({ stable, pet }: { stable: Stable; pet: Pet }) {
       </section>
 
       {pet.alive ? (
-        <>
+        // `disabled` on a fieldset reaches every button inside: all the care
+        // waits until a solved sum wakes the pet.
+        <fieldset disabled={asleep} className={cn("contents", asleep && "[&_button]:opacity-50")}>
           <section className="grid grid-cols-2 gap-3">
             {STATS.map(({ stat, emoji, label }) => (
               <StatBar key={stat} emoji={emoji} label={t(label)} value={pet[stat]} />
@@ -462,7 +523,7 @@ function Stall({ stable, pet }: { stable: Stable; pet: Pet }) {
               </div>
             </section>
           ))}
-        </>
+        </fieldset>
       ) : (
         <Revive pet={pet} coins={stable.coins} />
       )}
@@ -602,7 +663,34 @@ function PetFigure({ pet, mood, onPet }: { pet: Pet; mood: Mood; onPet: (() => v
       {mood === "sad" && <span className="absolute -right-4 top-2 text-5xl">💧</span>}
       {mood === "happy" && <span className="absolute -right-4 top-2 text-5xl">✨</span>}
       {mood === "vacation" && <span className="absolute -right-4 top-2 text-5xl">🏖️</span>}
+      {mood === "asleep" && <span className="absolute -right-4 top-2 text-5xl">💤</span>}
     </motion.button>
+  );
+}
+
+/** Twinkling stars and a moon over the sleeping pet. Decoration only. */
+function NightSky() {
+  const stars = [
+    [12, 14, 0],
+    [28, 30, 0.6],
+    [70, 12, 1.2],
+    [86, 34, 0.3],
+    [52, 22, 0.9],
+    [18, 52, 1.5],
+  ] as const;
+  return (
+    <span className="pointer-events-none absolute inset-0" aria-hidden>
+      <span className="absolute right-6 top-5 size-10 rounded-full bg-[oklch(0.95_0.06_95)] shadow-[0_0_30px_8px_oklch(0.95_0.08_95/0.5),inset_-6px_-4px_0_oklch(0.85_0.08_85)]" />
+      {stars.map(([left, top, delay]) => (
+        <motion.span
+          key={`${left}-${top}`}
+          className="absolute size-1.5 rounded-full bg-white"
+          style={{ left: `${left}%`, top: `${top}%` }}
+          animate={{ opacity: [0.2, 1, 0.2], scale: [0.8, 1.3, 0.8] }}
+          transition={{ duration: 2.4, repeat: Infinity, delay }}
+        />
+      ))}
+    </span>
   );
 }
 

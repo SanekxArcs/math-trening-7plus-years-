@@ -62,6 +62,7 @@ export function parseStable(raw: string | null): Stable {
       pets,
       activeId,
       savedAt: isNum(source.savedAt) ? source.savedAt : 0,
+      asleepSince: isNum(source.asleepSince) ? source.asleepSince : null,
     };
   } catch {
     return NEW_STABLE;

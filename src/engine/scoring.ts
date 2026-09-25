@@ -175,9 +175,9 @@ export function applyAttempt(
 }
 
 /**
- * What the child sees. The true total is kept in `rawPoints` for the parent
- * dashboard, but a visible negative score reads as "you are bad at this" to a
- * seven-year-old, so the display floors at zero.
+ * The total that counts towards the goal and the coins, floored at zero so a
+ * bad run can never cost more than the points it earned. The screen shows the
+ * true `rawPoints`, negative included, so a mistake is seen to cost something.
  */
 export function displayPoints(state: ScoreState): number {
   return Math.max(0, state.rawPoints);

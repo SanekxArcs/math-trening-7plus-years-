@@ -244,6 +244,14 @@
   press can sink the tile onto it. The press uses `translate`, a separate
   property from `transform`, so it never fights motion's scale animations.
 */
+/* Registered so it can be transitioned: that is what lets a tile's whole look
+   — gradient, edge, glow — morph to a new colour instead of snapping. */
+@property --c {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: #7c3aed;
+}
+
 .answer-tile {
   --c: var(--tile, var(--primary));
   --edge: color-mix(in oklch, var(--c) 72%, black);
@@ -261,6 +269,7 @@
     0 6px 0 0 var(--edge),
     0 14px 22px -10px color-mix(in oklch, var(--c) 70%, transparent);
   transition:
+    --c 0.5s ease-in-out var(--stagger, 0s),
     translate 0.12s ease-out,
     box-shadow 0.12s ease-out,
     background 0.25s,

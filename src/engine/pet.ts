@@ -102,6 +102,8 @@ export const STARTING_COINS = 10;
 export const DAILY_BONUS = 5;
 /** One coin for every this many points of goal. */
 export const POINTS_PER_COIN = 20;
+/** Extra coins for each level above the first: climbing is worth it on its own. */
+export const LEVEL_COINS = 5;
 export const REVIVE_PRICE = 100;
 /** What a revived pet comes back with — alive, but in need of looking after. */
 export const REVIVE_LEVEL = 50;
@@ -140,6 +142,11 @@ export interface Stable {
    * decides which copy wins when the device and the backup disagree.
    */
   savedAt: number;
+  /**
+   * Epoch ms the child finished for the day and the pets went to bed; null
+   * while they are up. Cleared by the next answer given.
+   */
+  asleepSince: number | null;
 }
 
 export const NEW_STABLE: Stable = {
@@ -148,6 +155,7 @@ export const NEW_STABLE: Stable = {
   pets: [],
   activeId: null,
   savedAt: 0,
+  asleepSince: null,
 };
 
 export type ItemKind = "food" | "play" | "care" | "vet";
@@ -397,6 +405,27 @@ export function onVacation(stable: Stable): boolean {
   return stable.pets.length > 0 && stable.pets.every((pet) => pet.vacation);
 }
 
+/**
+ * Bedtime: "finish for today" puts the pets to sleep, and the next sum solved
+ * wakes them. It is a ritual, not a pause — needs keep falling while they
+ * sleep, exactly as they would awake. Freezing them would let a child stop
+ * playing and never have a pet go hungry, which is the one thing the economy
+ * above is built to prevent. Only the grown-ups' vacation switch stops time.
+ */
+export function putToSleep(stable: Stable, now: number): Stable {
+  if (stable.pets.length === 0 || stable.asleepSince !== null) return stable;
+  return { ...stable, asleepSince: now };
+}
+
+export function wakeUp(stable: Stable): Stable {
+  if (stable.asleepSince === null) return stable;
+  return { ...stable, asleepSince: null };
+}
+
+export function isAsleep(stable: Stable): boolean {
+  return stable.asleepSince !== null && stable.pets.length > 0;
+}
+
 /** The local calendar day, so "first win of the day" means the child's day. */
 export function dayKey(now: number): string {
   const date = new Date(now);
@@ -414,6 +443,15 @@ export function coinsForGoal(goal: number): number {
   return Math.max(1, Math.round(goal / POINTS_PER_COIN));
 }
 
+/**
+ * Coins for winning a given level: the goal's worth, plus a flat step for
+ * every level climbed. The goal already grows with the level, but by itself
+ * that only pays for the extra maths; the step is the prize for moving up.
+ */
+export function coinsForLevel(goal: number, level: number): number {
+  return coinsForGoal(goal) + LEVEL_COINS * Math.max(0, Math.floor(level) - 1);
+}
+
 export interface Reward {
   coins: number;
   bonus: number;
@@ -425,12 +463,14 @@ export interface SessionEnd {
   /** The goal the level was played to. */
   goal: number;
   points: number;
+  /** The level played; 1 when left out. */
+  level?: number;
 }
 
 /**
  * What a finished session pays, or null for nothing.
  *
- * A level won pays by its goal. Stopping early pays nothing — otherwise
+ * A level won pays by its goal and its level. Stopping early pays nothing — otherwise
  * "finish for now" and start again would be a way round the level. The one
  * exception is a game with the goal switched off, where there is no level to
  * win at all: there the points themselves are paid out at the same rate, so a
@@ -438,7 +478,7 @@ export interface SessionEnd {
  */
 export function sessionReward(stable: Stable, session: SessionEnd, now: number): Reward | null {
   const coins = session.won
-    ? coinsForGoal(session.goal)
+    ? coinsForLevel(session.goal, session.level ?? 1)
     : session.goalEnabled
       ? 0
       : Math.floor(session.points / POINTS_PER_COIN);
@@ -458,7 +498,16 @@ export function payReward(stable: Stable, reward: Reward, now: number): Stable {
  * The one thing the pet would say if it could, most urgent first. Drives the
  * face, the message under it and the nudges elsewhere.
  */
-export type Mood = "gone" | "vacation" | "sick" | "hungry" | "dirty" | "sad" | "happy" | "ok";
+export type Mood =
+  | "gone"
+  | "vacation"
+  | "asleep"
+  | "sick"
+  | "hungry"
+  | "dirty"
+  | "sad"
+  | "happy"
+  | "ok";
 
 export function moodOf(pet: Pet): Mood {
   if (!pet.alive) return "gone";
@@ -469,6 +518,17 @@ export function moodOf(pet: Pet): Mood {
   if (pet.happy < LOW) return "sad";
   if (pet.food >= 70 && pet.clean >= 70 && pet.happy >= 70) return "happy";
   return "ok";
+}
+
+/**
+ * The face to draw: the pet's own mood, unless the whole stable has gone to
+ * bed. Kept apart from `moodOf` so the nudges still know a sleeping pet is
+ * hungry — it will be the moment it wakes.
+ */
+export function shownMood(stable: Stable, pet: Pet): Mood {
+  const mood = moodOf(pet);
+  if (mood === "gone" || mood === "vacation") return mood;
+  return isAsleep(stable) ? "asleep" : mood;
 }
 
 /** Worth a nudge: something is low, or worse. */

@@ -1,16 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Eye, Flag, Pause, Play, Settings2, Trophy } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Eye, Flag, Moon, Pause, Play, Settings2, Sun, Trophy } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   displayPoints,
   goalForLevel,
   hasNextLevel,
   activePet,
+  isAsleep,
   petNeedingCare,
   payReward,
+  putToSleep,
   sessionReward,
+  coinsForLevel,
   settingsForLevel,
+  shownMood,
+  wakeUp,
   type Reward,
 } from "@/engine";
 import { cn } from "@/lib/utils";
@@ -30,6 +35,16 @@ import { useLocalSession } from "./useLocalSession";
 import { useLocalLevel } from "./useLocalLevel";
 import { BottomBar, dockIconClass } from "./BottomBar";
 import { PetArt } from "@/pets/PetArt";
+import { CoinIcon } from "@/pets/CoinCount";
+import {
+  Backdrop,
+  DialogTitle,
+  GameDialog,
+  SessionStats,
+  ghostActionClass,
+  primaryActionClass,
+  secondaryActionClass,
+} from "./GameDialog";
 import { updateStable, useLiveStable, useStable } from "./useStable";
 import type { GameSettings } from "@/engine";
 import type { SyncStatus } from "@/sync/useSync";
@@ -134,6 +149,8 @@ export function GameScreen({
   /** The pet the nudges are about: whoever needs care, else whoever is on screen. */
   const needy = petNeedingCare(stable);
   const [reward, setReward] = useState<Reward | null>(null);
+  /** Set when "finish for today" is what ended the session: the payout then puts the pets to bed too. */
+  const bedtime = useRef(false);
   const wasFinished = useRef(state.phase === "finished");
   useEffect(() => {
     const finished = state.phase === "finished";
@@ -144,6 +161,8 @@ export function GameScreen({
       return;
     }
     const now = Date.now();
+    const sleep = bedtime.current;
+    bedtime.current = false;
     let paid: Reward | null = null;
     updateStable((current) => {
       paid = sessionReward(
@@ -153,13 +172,69 @@ export function GameScreen({
           goalEnabled: settings.goalEnabled,
           goal: settings.goalTarget,
           points: displayPoints(state.score),
+          level,
         },
         now,
       );
-      return paid ? payReward(current, paid, now) : current;
+      const next = paid ? payReward(current, paid, now) : current;
+      return sleep ? putToSleep(next, now) : next;
     });
     setReward(paid);
-  }, [state.phase, state.won, state.score, settings.goalEnabled, settings.goalTarget]);
+  }, [state.phase, state.won, state.score, settings.goalEnabled, settings.goalTarget, level]);
+
+  /**
+   * The end of the day: the session is closed (and paid, if it earned
+   * anything) and the pets go to bed. After a level already won there is
+   * nothing left to close, so it is straight to bed.
+   */
+  const finishToday = () => {
+    if (state.phase === "finished") {
+      updateStable((current) => putToSleep(current, Date.now()));
+      return;
+    }
+    bedtime.current = true;
+    game.stop();
+  };
+
+  // "Finish for today" pressed on the pets screen, which is where pause leads.
+  // It is carried here so the one place that pays out and puts to bed stays
+  // the only one. Cleared at once so a reload or a back-swipe cannot repeat it.
+  const navigate = useNavigate();
+  const location = useLocation();
+  useEffect(() => {
+    if ((location.state as { finishToday?: boolean } | null)?.finishToday !== true) return;
+    navigate(location.pathname, { replace: true, state: null });
+    finishToday();
+    // Once, on arrival: the request is consumed by the navigate above.
+  }, []);
+
+  /**
+   * Morning: the first answer of a new day wakes the pets, with a little
+   * "awake!" note so the child sees their maths did it.
+   */
+  const asleep = isAsleep(stable);
+  const [wokeUp, setWokeUp] = useState<string | null>(null);
+  useEffect(() => {
+    // Not on a finished board: the answer that ended the day is still on it,
+    // and must not wake the pets that the same finish just put to bed.
+    if (!outcome || !asleep || state.phase === "finished") return;
+    updateStable(wakeUp);
+    setWokeUp(shown?.name ?? null);
+  }, [state.questionId, state.phase, outcome, asleep, shown?.name]);
+  useEffect(() => {
+    if (wokeUp === null) return;
+    const id = window.setTimeout(() => setWokeUp(null), 2800);
+    return () => window.clearTimeout(id);
+  }, [wokeUp]);
+
+  /**
+   * A pause for the tab going away outlives the tab coming back: the child
+   * returns to the pause card and taps "keep playing" when they are ready,
+   * instead of being dropped into a countdown they have not looked at yet.
+   */
+  useEffect(() => {
+    if (state.pausedBy.includes("away")) game.pause();
+  }, [state.pausedBy, game.pause]);
 
   const canShowHint = settings.visualHintEnabled && hasPictureHint(problem);
   const hintOpen = canShowHint && hintFor === state.questionId;
@@ -237,9 +312,7 @@ export function GameScreen({
           />
         ) : (
           <OptionGrid
-            // Per question, so every new hand is dealt in fresh — even a tile
-            // whose number happens to repeat in the same spot.
-            key={state.questionId}
+            questionId={state.questionId}
             options={state.question.options}
             answer={problem.answer}
             hidden={state.hidden}
@@ -269,40 +342,51 @@ export function GameScreen({
 
       </div>
 
-      {/* Paused. Shown for a deliberate tap and for the tab going away alike,
-          so a child who comes back to the tablet is never dropped straight
-          into a running countdown they have not looked at yet. */}
+      {/* The morning note: the pets woke up because a sum was solved. */}
+      <AnimatePresence>
+        {wokeUp && (
+          <motion.div
+            initial={{ opacity: 0, y: 24, scale: 0.8 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.9 }}
+            transition={{ type: "spring", stiffness: 420, damping: 20 }}
+            className="pointer-events-none fixed inset-x-0 bottom-28 z-40 flex justify-center"
+            role="status"
+          >
+            <span className="flex items-center gap-2 rounded-full border border-combo/40 bg-card/95 py-1.5 pl-1.5 pr-4 font-display font-black shadow-lg backdrop-blur">
+              <span className="flex size-8 items-center justify-center rounded-full bg-linear-to-b from-combo to-[oklch(0.7_0.19_50)] text-combo-foreground">
+                <Sun className="size-4" aria-hidden />
+              </span>
+              {t("petAwake", { name: wokeUp })}
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Paused by the tab going away — the deliberate pause is the pets
+          screen. A child who comes back to the tablet is never dropped
+          straight into a running countdown they have not looked at yet. */}
       <AnimatePresence>
         {state.paused && state.phase !== "finished" && (
           <Backdrop>
-            <Dialog>
-              <Pause className="mx-auto size-14 text-primary" aria-hidden />
-              <h2 className="mt-4 font-display text-3xl font-black">{t("paused")}</h2>
-              <p className="mt-2 text-sm text-muted-foreground">{t("pausedBlurb")}</p>
-              <p className="mt-4 font-display text-lg font-black tabular-nums">
-                {t("finishSummary", {
-                  points: displayPoints(state.score),
-                  correct: state.score.correct,
-                  streak: state.score.bestStreak,
-                })}
-              </p>
+            <GameDialog hero={<Pause className="size-10" fill="currentColor" strokeWidth={0} aria-hidden />}>
+              <DialogTitle>{t("paused")}</DialogTitle>
+              <p className="mt-1.5 text-sm text-muted-foreground">{t("pausedBlurb")}</p>
+              <SessionStats score={state.score} className="mt-5" />
 
-              <button
-                type="button"
-                onClick={game.resume}
-                className="mt-6 flex w-full items-center justify-center gap-2 rounded-[--radius-lg] border-b-8 border-primary/60 bg-primary py-5 font-display text-xl font-black text-primary-foreground shadow-xl focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
-              >
-                <Play className="size-5" aria-hidden />
+              <button type="button" onClick={game.resume} className={cn(primaryActionClass, "mt-6")}>
+                <Play className="size-5" fill="currentColor" aria-hidden />
                 {t("keepPlaying")}
               </button>
-              <button
-                type="button"
-                onClick={game.stop}
-                className="mt-3 w-full rounded-[--radius-lg] py-3 font-display font-bold text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
-              >
-                {t("finishSession")}
+              <Link to="/pets" className={cn(secondaryActionClass, "mt-3")}>
+                <PetArt species={shown?.species ?? "horse"} className="size-7" />
+                {t("visitHorse")}
+              </Link>
+              <button type="button" onClick={finishToday} className={cn(ghostActionClass, "mt-1")}>
+                <Moon className="size-4" aria-hidden />
+                {t("finishToday")}
               </button>
-            </Dialog>
+            </GameDialog>
           </Backdrop>
         )}
       </AnimatePresence>
@@ -310,113 +394,119 @@ export function GameScreen({
       <AnimatePresence>
         {state.phase === "finished" && (
           <Backdrop>
-            <Dialog>
-              {state.won ? (
-                <Trophy className="mx-auto size-16 text-combo" aria-hidden />
-              ) : (
-                <Flag className="mx-auto size-16 text-primary" aria-hidden />
-              )}
-              <h2
-                className={cn(
-                  "mt-4 font-display text-3xl font-black",
-                  state.won ? "text-correct" : "text-foreground",
-                )}
+            {asleep ? (
+              // Bedtime. The pet itself is the badge, fast asleep.
+              <GameDialog
+                tone="night"
+                hero={
+                  <PetArt
+                    species={shown?.species ?? "horse"}
+                    mood="asleep"
+                    animated
+                    className="size-20"
+                  />
+                }
               >
-                {state.won
-                  ? level > 1
-                    ? t("levelCleared", { level })
-                    : t("goalReached")
-                  : t("sessionOver")}
-              </h2>
-              <p className="mt-2 text-muted-foreground">
-                {t("finishSummary", {
-                  points: displayPoints(state.score),
-                  correct: state.score.correct,
-                  streak: state.score.bestStreak,
-                })}
-              </p>
-
-              {reward && (
-                <motion.div
-                  initial={{ scale: 0.6, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ type: "spring", stiffness: 300, damping: 18, delay: 0.3 }}
-                  className="mt-4 rounded-[--radius-lg] bg-combo/20 px-4 py-3 font-display font-black text-combo-foreground"
-                >
-                  <p className="text-2xl">🪙 {t("coinsEarned", { coins: reward.coins })}</p>
-                  {reward.bonus > 0 && (
-                    <p className="text-sm">{t("dailyBonus", { coins: reward.bonus })}</p>
-                  )}
-                </motion.div>
-              )}
-
-              <Link
-                to="/pets"
-                className={cn(
-                  "mt-3 flex items-center justify-center gap-2 rounded-[--radius-lg] bg-secondary py-3 font-display font-bold text-secondary-foreground focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none",
-                  needy && "animate-pulse",
+                <DialogTitle>
+                  {shown ? t("goodNight", { name: shown.name }) : t("goodNightPlain")}
+                </DialogTitle>
+                {shown && (
+                  <p className="mt-1.5 text-sm text-muted-foreground">
+                    {t("goodNightBlurb", { name: shown.name })}
+                  </p>
                 )}
-              >
-                <PetArt species={needy?.species ?? shown?.species ?? "horse"} className="size-7" />
-                {needy ? t("horseNeedsYou", { name: needy.name }) : t("visitHorse")}
-              </Link>
-
-              {/* The next level is offered only for a goal actually reached.
-                  A child who stopped for lunch is not moved up, and neither is
-                  one whose goal is already at the ceiling — a "next level" that
-                  plays to the same target is a promise the game cannot keep. */}
-              {state.won && canLevelUp ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={startNextLevel}
-                    className="mt-8 w-full rounded-[--radius-lg] border-b-8 border-primary/60 bg-primary py-5 font-display text-xl font-black text-primary-foreground shadow-xl focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
-                  >
-                    {t("nextLevel", { level: level + 1 })}
-                    <span className="mt-1 block text-sm font-bold text-primary-foreground/80">
-                      {t("nextLevelGoal", { points: nextGoal })}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={game.restart}
-                    className="mt-3 w-full rounded-[--radius-lg] py-3 font-display font-bold text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
-                  >
-                    {t("sameLevel", { level })}
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  onClick={game.restart}
-                  className="mt-8 w-full rounded-[--radius-lg] border-b-8 border-primary/60 bg-primary py-5 font-display text-xl font-black text-primary-foreground shadow-xl focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
-                >
-                  {t("playAgain")}
+                <SessionStats score={state.score} className="mt-5" />
+                {reward && <RewardCard reward={reward} />}
+                <button type="button" onClick={game.restart} className={cn(secondaryActionClass, "mt-6")}>
+                  <Play className="size-5" aria-hidden />
+                  {t("playMore")}
                 </button>
-              )}
-            </Dialog>
+              </GameDialog>
+            ) : (
+              <GameDialog
+                tone={state.won ? "win" : "primary"}
+                hero={
+                  state.won ? (
+                    <Trophy className="size-11" aria-hidden />
+                  ) : (
+                    <Flag className="size-10" aria-hidden />
+                  )
+                }
+              >
+                <DialogTitle className={cn(state.won && "text-correct")}>
+                  {state.won
+                    ? level > 1
+                      ? t("levelCleared", { level })
+                      : t("goalReached")
+                    : t("sessionOver")}
+                </DialogTitle>
+                <SessionStats score={state.score} className="mt-5" />
+                {reward && <RewardCard reward={reward} />}
+
+                {/* The next level is offered only for a goal actually reached.
+                    A child who stopped for lunch is not moved up, and neither is
+                    one whose goal is already at the ceiling — a "next level" that
+                    plays to the same target is a promise the game cannot keep. */}
+                {state.won && canLevelUp ? (
+                  <>
+                    <button type="button" onClick={startNextLevel} className={cn(primaryActionClass, "mt-6 flex-col gap-0")}>
+                      {t("nextLevel", { level: level + 1 })}
+                      <span className="flex items-center gap-2 text-sm font-bold text-primary-foreground/80">
+                        <span>{t("nextLevelGoal", { points: nextGoal })}</span>
+                        {/* What the next level pays, so moving up has a visible prize. */}
+                        <span
+                          className="flex items-center gap-1 rounded-full bg-black/15 py-0.5 pl-0.5 pr-2 text-primary-foreground"
+                          aria-label={`${coinsForLevel(nextGoal, level + 1)} ${t("coins")}`}
+                        >
+                          <CoinIcon className="size-4" />
+                          <span aria-hidden>{coinsForLevel(nextGoal, level + 1)}</span>
+                        </span>
+                      </span>
+                    </button>
+                    <button type="button" onClick={game.restart} className={cn(secondaryActionClass, "mt-3")}>
+                      {t("sameLevel", { level })}
+                    </button>
+                  </>
+                ) : (
+                  <button type="button" onClick={game.restart} className={cn(primaryActionClass, "mt-6")}>
+                    {t("playAgain")}
+                  </button>
+                )}
+
+                <Link
+                  to="/pets"
+                  className={cn(ghostActionClass, "mt-1", needy && "animate-pulse text-foreground")}
+                >
+                  <PetArt species={needy?.species ?? shown?.species ?? "horse"} className="size-7" />
+                  {needy ? t("horseNeedsYou", { name: needy.name }) : t("visitHorse")}
+                </Link>
+                {stable.pets.length > 0 && (
+                  <button type="button" onClick={finishToday} className={ghostActionClass}>
+                    <Moon className="size-4" aria-hidden />
+                    {t("finishToday")}
+                  </button>
+                )}
+              </GameDialog>
+            )}
           </Backdrop>
         )}
       </AnimatePresence>
 
       <BottomBar className="grid-cols-[1fr_auto_auto_auto_1fr] gap-2 sm:gap-3">
-        {/* The grown-up corner: small, grouped in a tray, and visually quieter
-            than the two big buttons a child is meant to use. */}
-        <div className="flex items-center gap-0.5 justify-self-start rounded-full bg-muted/70 p-1">
-          <Link to="/parent" aria-label={t("parentDashboard")} className={dockIconClass}>
-            <Settings2 className="size-5" aria-hidden />
-          </Link>
-          {pairCode && <PairCodeBadge pairCode={pairCode} />}
-        </div>
+        {/* The grown-up corners: small and quiet, one at each end, well away
+            from the buttons a child is meant to use. */}
+        <Link
+          to="/parent"
+          aria-label={t("parentDashboard")}
+          className={cn(dockIconClass, "justify-self-start bg-muted/70")}
+        >
+          <Settings2 className="size-5" aria-hidden />
+        </Link>
 
-        {/* Down here, but in its own bar below the lifelines rather than among
-            the tiles, so it is easy to reach and hard to hit by accident. And
-            a stray tap only pauses — nothing is lost. Raised out of the dock
-            like a console's centre button, ringed in the card colour so it
-            reads as sitting on top of it. */}
-        {/* The lifelines flank pause. A slot is kept even when one is switched
-            off, so pause stays dead centre; one that is on but not usable right
-            now — no picture for this sum, 50:50 recharging — shows greyed. */}
+        {/* The lifelines flank the centre button. A slot is kept even when one
+            is switched off, so the centre stays dead centre; one that is on but
+            not usable right now — no picture for this sum, 50:50 recharging —
+            shows greyed. */}
         {halfHalfOn ? (
           <HalfHalfButton
             readyAt={state.halfHalfReadyAt}
@@ -429,14 +519,59 @@ export function GameScreen({
           <span className="size-12" aria-hidden />
         )}
 
-        <button
-          type="button"
-          onClick={game.pause}
-          aria-label={t("pauseGame")}
-          className="-my-5 flex size-16 items-center justify-center justify-self-center rounded-full border-b-4 border-black/15 bg-linear-to-b from-primary to-primary/80 text-primary-foreground shadow-[0_8px_18px_-6px_var(--primary)] ring-4 ring-card transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0.5 active:scale-95 active:border-b-2 focus-visible:ring-ring focus-visible:outline-none"
+        {/* Pause and the pets are one button: stepping away from the sums is
+            going to see the pets. The pets screen holds the paused game — keep
+            playing, or finish for today and put everyone to bed. The session
+            is saved as it goes, so leaving the screen loses nothing.
+
+            Raised out of the dock like a console's centre button, with the pet
+            living in it and a pause badge to say what a tap does. One that
+            needs care wiggles, and gets a dot — a nudge that needs no reading. */}
+        <Link
+          to="/pets"
+          aria-label={t("pauseAndPets")}
+          className="relative -my-5 flex size-18 items-center justify-center justify-self-center rounded-full border-b-4 border-black/15 bg-linear-to-b from-secondary to-accent shadow-[0_8px_18px_-6px_var(--primary)] ring-4 ring-card transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0.5 active:scale-95 active:border-b-2 focus-visible:ring-ring focus-visible:outline-none"
         >
-          <Pause className="size-7" fill="currentColor" strokeWidth={0} aria-hidden />
-        </button>
+          <motion.span
+            className="flex"
+            animate={
+              needy && !asleep
+                ? { rotate: [0, -12, 12, -8, 0], y: 0 }
+                : asleep || shown?.alive === false
+                  ? { rotate: 0, y: 0 }
+                  : { rotate: 0, y: [0, -3, 0] }
+            }
+            transition={
+              needy && !asleep
+                ? { duration: 0.7, repeat: Infinity, repeatDelay: 1.6 }
+                : { duration: 2.2, repeat: Infinity, ease: "easeInOut" }
+            }
+          >
+            {/* Keyed on the mood so waking up is a pop, not a quiet swap. */}
+            <motion.span
+              key={shown ? shownMood(stable, shown) : "none"}
+              className="flex"
+              initial={{ scale: 0.6 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", stiffness: 500, damping: 12 }}
+            >
+              <PetArt
+                species={shown?.species ?? "horse"}
+                mood={shown ? shownMood(stable, shown) : "ok"}
+                className={cn("size-12", shown && !shown.alive && "grayscale")}
+              />
+            </motion.span>
+          </motion.span>
+          <span className="absolute -bottom-1 -right-1 flex size-7 items-center justify-center rounded-full border-[3px] border-card bg-primary text-primary-foreground shadow">
+            <Pause className="size-3" fill="currentColor" strokeWidth={0} aria-hidden />
+          </span>
+          {needy && (
+            <span className="absolute -right-0.5 -top-0.5 flex size-4">
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-wrong opacity-75" />
+              <span className="relative inline-flex size-4 rounded-full border-2 border-card bg-wrong" />
+            </span>
+          )}
+        </Link>
 
         {settings.visualHintEnabled ? (
           <PowerButton
@@ -451,77 +586,37 @@ export function GameScreen({
           <span className="size-12" aria-hidden />
         )}
 
-        <Link
-          to="/pets"
-          aria-label={t("openStable", { coins: stable.coins })}
-          className="relative flex items-center gap-2 justify-self-end rounded-full border-b-4 border-black/15 bg-linear-to-b from-secondary to-accent p-1 sm:pr-4 font-display text-lg font-black text-secondary-foreground shadow-[0_4px_12px_-6px_var(--primary)] transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0.5 active:scale-95 active:border-b-2 focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
-        >
-          {/* The pet lives in a bubble and bobs gently, so the button reads as
-              a friend waiting rather than a menu item. One that needs care
-              wiggles instead — a nudge that does not need reading. */}
-          <span className="flex size-10 items-center justify-center rounded-full bg-card shadow-inner">
-            <motion.span
-              className="flex"
-              animate={
-                needy
-                  ? { rotate: [0, -12, 12, -8, 0], y: 0 }
-                  : shown?.alive === false
-                    ? { rotate: 0, y: 0 }
-                    : { rotate: 0, y: [0, -3, 0] }
-              }
-              transition={
-                needy
-                  ? { duration: 0.7, repeat: Infinity, repeatDelay: 1.6 }
-                  : { duration: 2.2, repeat: Infinity, ease: "easeInOut" }
-              }
-            >
-              <PetArt
-                species={shown?.species ?? "horse"}
-                className={cn("size-8", shown && !shown.alive && "grayscale")}
-              />
-            </motion.span>
-          </span>
-          {/* On a phone the pet alone says it; there is no room for both. */}
-          <span className="hidden sm:inline">{t("pets")}</span>
-          {/* A dot rather than words: it has to read at a glance, mid-game,
-              without pulling attention off the question. */}
-          {needy && (
-            <span className="absolute -right-0.5 -top-0.5 flex size-4">
-              <span className="absolute inline-flex size-full animate-ping rounded-full bg-wrong opacity-75" />
-              <span className="relative inline-flex size-4 rounded-full border-2 border-card bg-wrong" />
-            </span>
-          )}
-        </Link>
+        <div className="justify-self-end">
+          {pairCode && <PairCodeBadge pairCode={pairCode} />}
+        </div>
       </BottomBar>
     </main>
   );
 }
 
-/** Shared chrome for the two full-screen dialogs, so they cannot drift apart. */
-function Backdrop({ children }: { children: React.ReactNode }) {
+/** Coins earned, as a gold card that pops in after the numbers have counted up. */
+function RewardCard({ reward }: { reward: Reward }) {
+  const { t } = useI18n();
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 p-6 backdrop-blur-sm"
+      initial={{ scale: 0.6, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ type: "spring", stiffness: 320, damping: 16, delay: 0.7 }}
+      className="mt-3 flex items-center gap-3 rounded-lg border border-combo/40 bg-linear-to-b from-combo/25 to-combo/10 px-4 py-3 text-left font-display font-black text-combo-foreground dark:text-combo"
     >
-      {children}
-    </motion.div>
-  );
-}
-
-function Dialog({ children }: { children: React.ReactNode }) {
-  return (
-    <motion.div
-      initial={{ scale: 0.85, y: 20 }}
-      animate={{ scale: 1, y: 0 }}
-      transition={{ type: "spring", stiffness: 260, damping: 22 }}
-      className="w-full max-w-sm rounded-[--radius-xl] bg-card p-8 text-center shadow-2xl"
-      role="dialog"
-      aria-modal="true"
-    >
-      {children}
+      <motion.span
+        className="flex"
+        initial={{ rotateY: 0 }}
+        animate={{ rotateY: 720 }}
+        transition={{ duration: 1.1, ease: "easeOut", delay: 0.7 }}
+        style={{ transformPerspective: 200 }}
+      >
+        <CoinIcon className="size-10" />
+      </motion.span>
+      <div>
+        <p className="text-2xl leading-tight">{t("coinsEarned", { coins: reward.coins })}</p>
+        {reward.bonus > 0 && <p className="text-sm">{t("dailyBonus", { coins: reward.bonus })}</p>}
+      </div>
     </motion.div>
   );
 }

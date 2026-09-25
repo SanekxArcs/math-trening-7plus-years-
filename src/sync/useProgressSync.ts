@@ -62,7 +62,10 @@ export function useProgressSync(identity: IdentityState): void {
     if (remote?.status !== "ok" || !remote.progress) return;
     const { level: backedUpLevel, ...backup } = remote.progress;
     raiseLevel(backedUpLevel);
-    if (backup.savedAt > readStable().savedAt) restoreStable(backup);
+    // Bedtime is not backed up — it is about this device's day — so the
+    // local one is kept across a restore.
+    const local = readStable();
+    if (backup.savedAt > local.savedAt) restoreStable({ ...backup, asleepSince: local.asleepSince });
   }, [remote]);
 
   // Up: a newer device copy, or a higher level, is sent after a short pause.

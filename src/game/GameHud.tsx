@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { Star, Trophy } from "lucide-react";
-import { displayPoints, type ScoreState } from "@/engine";
+import type { ScoreState } from "@/engine";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/useI18n";
 import { CoinCount } from "@/pets/CoinCount";
@@ -31,7 +31,10 @@ export interface GameHudProps {
  * everything to tap lives in the bar at the bottom, under the thumb.
  */
 export function GameHud({ score, level, coins, syncStatus, goal, timer }: GameHudProps) {
-  const points = displayPoints(score);
+  // The real total, below zero included: a wrong answer is seen to cost
+  // something. Coins are still paid on the floored total, so a bad run can
+  // never take coins away.
+  const points = score.rawPoints;
   const shown = useCountUp(points);
   const pulse = useAnswerPulse(score);
 
@@ -147,7 +150,10 @@ function Points({ shown, total, pulse }: { shown: number; total?: number; pulse:
               : {}
         }
         transition={{ duration: 0.45, ease: "easeOut" }}
-        className="relative inline-block font-display text-xl font-black leading-none tabular-nums text-primary"
+        className={cn(
+          "relative inline-block font-display text-xl font-black leading-none tabular-nums transition-colors duration-300",
+          shown < 0 ? "text-wrong" : "text-primary",
+        )}
       >
         {shown}
       </motion.span>
@@ -173,7 +179,7 @@ function GoalBar({
   goal: number;
   pulse: Pulse;
 }) {
-  const fraction = Math.min(1, points / goal);
+  const fraction = Math.max(0, Math.min(1, points / goal));
   const close = fraction >= 0.75;
 
   return (
@@ -183,7 +189,7 @@ function GoalBar({
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={goal}
-        aria-valuenow={Math.min(points, goal)}
+        aria-valuenow={Math.max(0, Math.min(points, goal))}
       >
         <motion.div
           className="hud-sheen relative h-full overflow-hidden rounded-full bg-linear-to-r from-correct to-[oklch(0.8_0.17_135)] shadow-[0_0_10px_-2px_var(--correct)]"

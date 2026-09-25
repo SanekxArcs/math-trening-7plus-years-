@@ -5,6 +5,8 @@ import { useI18n } from "@/i18n/useI18n";
 import { Burst } from "./Burst";
 
 interface OptionGridProps {
+  /** Bumped per question: what re-paints the tiles and drops the new numbers in. */
+  questionId: number;
   options: number[];
   answer: number;
   hidden: number[];
@@ -16,6 +18,20 @@ interface OptionGridProps {
 
 type TileState = "correct" | "wrong" | "dim" | "hidden" | undefined;
 
+const HUES = 6;
+
+/**
+ * How far the palette turns for a question. The step between one question and
+ * the next is 1..5 places — never a whole turn — so every tile is guaranteed
+ * a new colour, and the varying step keeps the pattern from feeling mechanical.
+ * Closed form of summing `1 + (k % 5)` for k = 1..q.
+ */
+function paletteShift(questionId: number): number {
+  const q = Math.max(0, questionId);
+  const r = q % 5;
+  return (q + 10 * Math.floor(q / 5) + (r * (r + 1)) / 2) % HUES;
+}
+
 /**
  * The answers, as chunky candy tiles in their own colours. The look lives in
  * `.answer-tile` in index.css; this decides which state each tile is in and
@@ -23,8 +39,14 @@ type TileState = "correct" | "wrong" | "dim" | "hidden" | undefined;
  *
  * Nothing but the number goes inside a tile as text — the badge and sparks are
  * icons and shapes — so a tile's text is always exactly its value.
+ *
+ * The tiles stay mounted from question to question, so each new question can
+ * repaint them: the colours morph in a wave (a registered `--c`, see
+ * index.css), a shine sweeps across, and the new number drops in. The numbers
+ * themselves swap in the same frame as the sum, never after it.
  */
 export function OptionGrid({
+  questionId,
   options,
   answer,
   hidden,
@@ -33,6 +55,7 @@ export function OptionGrid({
   onPick,
 }: OptionGridProps) {
   const { t } = useI18n();
+  const shift = paletteShift(questionId);
 
   return (
     <div className="grid grid-cols-2 gap-x-3 gap-y-4 sm:gap-x-4 sm:gap-y-5">
@@ -53,7 +76,7 @@ export function OptionGrid({
 
         return (
           <motion.button
-            key={`${value}-${index}`}
+            key={index}
             type="button"
             disabled={revealed || isHidden}
             onClick={(event) => onPick(value, event.currentTarget.getBoundingClientRect())}
@@ -79,9 +102,33 @@ export function OptionGrid({
               "answer-tile py-7 font-display text-4xl font-black tabular-nums sm:py-9 sm:text-5xl",
               "disabled:cursor-default",
             )}
-            style={{ "--tile": `var(--option-${index % 6})` } as MotionStyle}
+            style={
+              {
+                "--tile": `var(--option-${(index + shift) % HUES})`,
+                // The repaint runs across the grid as a wave, not all at once.
+                "--stagger": `${index * 0.06}s`,
+              } as MotionStyle
+            }
           >
-            {value}
+            {/* Shine across the tile as its new colour comes in. */}
+            <span className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]" aria-hidden>
+              <motion.span
+                key={questionId}
+                className="absolute inset-y-0 w-1/2 bg-linear-to-r from-transparent via-white/60 to-transparent"
+                initial={{ left: "-60%", opacity: 1 }}
+                animate={{ left: "120%", opacity: 0.6 }}
+                transition={{ duration: 0.6, ease: "easeOut", delay: index * 0.06 }}
+              />
+            </span>
+            <motion.span
+              key={questionId}
+              className="relative inline-block"
+              initial={{ y: -18, opacity: 0, scale: 0.6 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              transition={{ type: "spring", stiffness: 500, damping: 20, delay: index * 0.06 }}
+            >
+              {value}
+            </motion.span>
 
             {(state === "correct" || state === "wrong") && (
               <motion.span

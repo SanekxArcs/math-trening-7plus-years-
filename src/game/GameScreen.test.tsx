@@ -1,21 +1,24 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
-import { DEFAULT_SETTINGS, type GameSettings } from "@/engine";
+import { MemoryRouter, Route, Routes, type InitialEntry } from "react-router-dom";
+import { DEFAULT_SETTINGS, NEW_STABLE, newPet, type GameSettings, type Stable } from "@/engine";
 import { I18nProvider } from "@/i18n/useI18n";
 import { GameScreen } from "./GameScreen";
 
-function renderGame(overrides: Partial<GameSettings> = {}) {
+function renderGame(overrides: Partial<GameSettings> = {}, entry: InitialEntry = "/") {
   const settings = { ...DEFAULT_SETTINGS, ...overrides };
   // Pin the language so the assertions below are about behaviour, not about
   // whichever locale the test environment happens to report.
   localStorage.setItem("math_master_lang", "en");
   return render(
     <I18nProvider>
-      <MemoryRouter>
-        <GameScreen settings={settings} />
+      <MemoryRouter initialEntries={[entry]}>
+        <Routes>
+          <Route path="/" element={<GameScreen settings={settings} />} />
+          <Route path="/pets" element={<p>The pets screen</p>} />
+        </Routes>
       </MemoryRouter>
     </I18nProvider>,
   );
@@ -45,6 +48,42 @@ function coins(): number {
   return JSON.parse(localStorage.getItem("math_master_stable") ?? "{}").coins;
 }
 
+function stable(): Stable {
+  return JSON.parse(localStorage.getItem("math_master_stable") ?? "{}") as Stable;
+}
+
+/** A stable with Sparky the horse in it, awake or already in bed. */
+function seedHorse(asleepSince: number | null = null) {
+  const now = Date.now();
+  const seeded: Stable = {
+    ...NEW_STABLE,
+    pets: [newPet("horse", "Sparky", now)],
+    activeId: "horse",
+    savedAt: 1,
+    asleepSince,
+  };
+  localStorage.setItem("math_master_stable", JSON.stringify(seeded));
+}
+
+/** The tablet going to sleep or the child switching apps, and coming back. */
+function setVisibility(state: "hidden" | "visible") {
+  Object.defineProperty(document, "visibilityState", { configurable: true, get: () => state });
+  act(() => {
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+}
+
+async function stepAwayAndBack() {
+  setVisibility("hidden");
+  setVisibility("visible");
+  return screen.findByRole("dialog");
+}
+
+async function finishForToday(user: ReturnType<typeof userEvent.setup>) {
+  await stepAwayAndBack();
+  await user.click(screen.getByRole("button", { name: /Finish for today/ }));
+}
+
 function optionButtons() {
   return screen
     .getAllByRole("button")
@@ -54,6 +93,10 @@ function optionButtons() {
 describe("GameScreen", () => {
   beforeEach(() => {
     localStorage.clear();
+  });
+
+  afterEach(() => {
+    setVisibility("visible");
   });
 
   it("renders a solvable question with the configured number of tiles", () => {
@@ -84,7 +127,11 @@ describe("GameScreen", () => {
 
     await user.click(wrong!);
 
-    expect(await screen.findByText("-10")).toBeInTheDocument();
+    // Twice: the answer's own verdict, and the total in the HUD, which now
+    // shows below zero rather than hiding the cost at 0.
+    const shown = await screen.findAllByText("-10");
+    expect(shown).toHaveLength(2);
+    expect(shown.some((element) => element.closest("header"))).toBe(true);
     // The meter must warn what the next mistake costs — an invisible escalation
     // just feels like the game turned against them.
     expect(await screen.findByText("−25 next")).toBeInTheDocument();
@@ -194,22 +241,61 @@ describe("GameScreen", () => {
     expect(screen.getByRole("button", { name: /Count on/ })).toBeInTheDocument();
   });
 
-  it("pauses on demand, and finishing ends the session", async () => {
+  it("pauses for the tab going away, and holds the pause until asked to go on", async () => {
+    // The bug this covers: the pause lifted the moment the tab came back, so a
+    // child returning to the tablet landed in a countdown already running.
     const user = userEvent.setup();
     renderGame({ timerEnabled: false, goalEnabled: false });
 
-    await user.click(screen.getByRole("button", { name: "Pause the game" }));
-    expect(await screen.findByRole("dialog")).toHaveTextContent("Paused");
+    expect(await stepAwayAndBack()).toHaveTextContent("Paused");
 
     await user.click(screen.getByRole("button", { name: /Keep playing/ }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(optionButtons().length).toBeGreaterThan(0);
 
-    await user.click(screen.getByRole("button", { name: "Pause the game" }));
-    await user.click(screen.getByRole("button", { name: /Finish for now/ }));
-
+    await finishForToday(user);
     expect(await screen.findByText("Nice work!")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Play again" })).toBeInTheDocument();
+  });
+
+  it("pauses by going to see the pets", async () => {
+    const user = userEvent.setup();
+    renderGame({ timerEnabled: false, goalEnabled: false });
+
+    await user.click(screen.getByRole("link", { name: "Pause and visit your pets" }));
+    expect(await screen.findByText("The pets screen")).toBeInTheDocument();
+  });
+
+  it("puts the pets to bed when the child finishes for today, and wakes them with the next sum", async () => {
+    const user = userEvent.setup();
+    seedHorse();
+    // "Finish for today" is pressed on the pets screen, which hands it here.
+    renderGame({ timerEnabled: false, goalEnabled: false }, { pathname: "/", state: { finishToday: true } });
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Good night, Sparky!")).toBeInTheDocument();
+    expect(stable().asleepSince).not.toBeNull();
+
+    await user.click(within(dialog).getByRole("button", { name: "Play a bit more" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    // Still asleep until a sum is actually solved.
+    expect(stable().asleepSince).not.toBeNull();
+
+    await user.click(screen.getByRole("button", { name: `Answer ${solveVisibleQuestion()}` }));
+    expect(await screen.findByText("Sparky is awake!")).toBeInTheDocument();
+    expect(stable().asleepSince).toBeNull();
+  });
+
+  it("does not wake the pets with the answer that ended the day", async () => {
+    const user = userEvent.setup();
+    seedHorse();
+    renderGame({ timerEnabled: false, goalEnabled: false });
+
+    await user.click(screen.getByRole("button", { name: `Answer ${solveVisibleQuestion()}` }));
+    await finishForToday(user);
+
+    expect(await screen.findByText("Good night, Sparky!")).toBeInTheDocument();
+    expect(stable().asleepSince).not.toBeNull();
   });
 
   it("keeps the points when the page is reloaded", async () => {
@@ -283,8 +369,7 @@ describe("GameScreen", () => {
     const user = userEvent.setup();
     renderGame({ timerEnabled: false, goalEnabled: true, goalTarget: 500 });
 
-    await user.click(screen.getByRole("button", { name: "Pause the game" }));
-    await user.click(screen.getByRole("button", { name: /Finish for now/ }));
+    await finishForToday(user);
 
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByRole("button", { name: "Play again" })).toBeInTheDocument();
@@ -315,8 +400,7 @@ describe("GameScreen", () => {
     const user = userEvent.setup();
     renderGame({ timerEnabled: false, goalEnabled: true, goalTarget: 500 });
 
-    await user.click(screen.getByRole("button", { name: "Pause the game" }));
-    await user.click(screen.getByRole("button", { name: /Finish for now/ }));
+    await finishForToday(user);
 
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).queryByText(/coins/)).toBeNull();

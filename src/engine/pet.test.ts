@@ -10,8 +10,14 @@ import {
   canPet,
   choose,
   coinsForGoal,
+  coinsForLevel,
+  LEVEL_COINS,
   cuddle,
   findItem,
+  isAsleep,
+  putToSleep,
+  shownMood,
+  wakeUp,
   itemsFor,
   moodOf,
   newPet,
@@ -241,5 +247,53 @@ describe("coins", () => {
     const free = { won: false, goalEnabled: false, goal: 200, points: 130 };
     expect(sessionReward(NEW_STABLE, free, T0)!.coins).toBe(6);
     expect(sessionReward(NEW_STABLE, { ...free, points: 15 }, T0)).toBeNull();
+  });
+});
+
+describe("bedtime", () => {
+  const withHorse = adopt(NEW_STABLE, "horse", "Sparky", T0);
+
+  it("puts the pets to bed and the next sum wakes them", () => {
+    const night = putToSleep(withHorse, T0);
+    expect(isAsleep(night)).toBe(true);
+    expect(shownMood(night, night.pets[0]!)).toBe("asleep");
+    expect(isAsleep(wakeUp(night))).toBe(false);
+  });
+
+  it("has no one to put to bed in an empty stable", () => {
+    expect(putToSleep(NEW_STABLE, T0)).toBe(NEW_STABLE);
+    expect(isAsleep(NEW_STABLE)).toBe(false);
+  });
+
+  it("keeps the first bedtime, not a later one", () => {
+    const night = putToSleep(withHorse, T0);
+    expect(putToSleep(night, T0 + 1000).asleepSince).toBe(T0);
+  });
+
+  it("does not stop the pets getting hungry while they sleep", () => {
+    // Sleep is a ritual, not a pause: freezing needs would let a child stop
+    // playing and never have a pet go hungry.
+    const night = putToSleep(withHorse, T0);
+    const morning = tick(night.pets[0]!, T0 + 24 * 60 * 60 * 1000);
+    expect(morning.food).toBeLessThan(night.pets[0]!.food);
+  });
+
+  it("still shows a pet that is gone as gone, asleep or not", () => {
+    const night = putToSleep(withHorse, T0);
+    const gone = { ...night.pets[0]!, alive: false };
+    expect(shownMood(night, gone)).toBe("gone");
+  });
+});
+
+describe("level rewards", () => {
+  it("pays more for every level climbed", () => {
+    expect(coinsForLevel(200, 1)).toBe(coinsForGoal(200));
+    expect(coinsForLevel(200, 2)).toBe(coinsForGoal(200) + LEVEL_COINS);
+    expect(coinsForLevel(200, 3)).toBe(coinsForGoal(200) + 2 * LEVEL_COINS);
+  });
+
+  it("pays the level step on a won session", () => {
+    const win = { won: true, goalEnabled: true, goal: 300, points: 300, level: 2 };
+    expect(sessionReward(NEW_STABLE, win, T0)!.coins).toBe(coinsForGoal(300) + LEVEL_COINS);
   });
 });
