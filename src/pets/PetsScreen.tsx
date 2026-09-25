@@ -140,7 +140,7 @@ export function PetsScreen() {
       <BottomBar>
         <Link
           to="/"
-          className="col-span-3 flex items-center justify-center gap-2 rounded-full bg-primary py-3.5 font-display text-lg font-black text-primary-foreground shadow-md focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
+          className="col-span-3 flex items-center justify-center gap-2 rounded-full border-b-4 border-black/15 bg-linear-to-b from-primary to-primary/80 py-3 font-display text-lg font-black text-primary-foreground shadow-[0_6px_16px_-6px_var(--primary)] transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0.5 active:scale-[0.98] active:border-b-2 focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
         >
           <ArrowLeft className="size-5" aria-hidden />
           {t("backToGame")}

@@ -26,7 +26,7 @@ import { playSound } from "./sound";
 import { useGame, type AttemptRecord, type StatsSource } from "./useGame";
 import { useLocalSession } from "./useLocalSession";
 import { useLocalLevel } from "./useLocalLevel";
-import { BottomBar } from "./BottomBar";
+import { BottomBar, dockIconClass } from "./BottomBar";
 import { PetArt } from "@/pets/PetArt";
 import { updateStable, useLiveStable, useStable } from "./useStable";
 import type { GameSettings } from "@/engine";
@@ -451,12 +451,10 @@ export function GameScreen({
       </AnimatePresence>
 
       <BottomBar>
-        <div className="flex items-center gap-2 justify-self-start">
-          <Link
-            to="/parent"
-            aria-label={t("parentDashboard")}
-            className="rounded-full p-2.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
-          >
+        {/* The grown-up corner: small, grouped in a tray, and visually quieter
+            than the two big buttons a child is meant to use. */}
+        <div className="flex items-center gap-0.5 justify-self-start rounded-full bg-muted/70 p-1">
+          <Link to="/parent" aria-label={t("parentDashboard")} className={dockIconClass}>
             <Settings2 className="size-5" aria-hidden />
           </Link>
           {pairCode && <PairCodeBadge pairCode={pairCode} />}
@@ -464,25 +462,48 @@ export function GameScreen({
 
         {/* Down here, but in its own bar below the lifelines rather than among
             the tiles, so it is easy to reach and hard to hit by accident. And
-            a stray tap only pauses — nothing is lost. */}
+            a stray tap only pauses — nothing is lost. Raised out of the dock
+            like a console's centre button, ringed in the card colour so it
+            reads as sitting on top of it. */}
         <button
           type="button"
           onClick={game.pause}
           aria-label={t("pauseGame")}
-          className="flex size-14 items-center justify-center justify-self-center rounded-full bg-secondary text-secondary-foreground shadow-md transition-colors hover:bg-accent focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
+          className="-my-5 flex size-16 items-center justify-center justify-self-center rounded-full border-b-4 border-black/15 bg-linear-to-b from-primary to-primary/80 text-primary-foreground shadow-[0_8px_18px_-6px_var(--primary)] ring-4 ring-card transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0.5 active:scale-95 active:border-b-2 focus-visible:ring-ring focus-visible:outline-none"
         >
-          <Pause className="size-6" aria-hidden />
+          <Pause className="size-7" fill="currentColor" strokeWidth={0} aria-hidden />
         </button>
 
         <Link
           to="/pets"
           aria-label={t("openStable", { coins: stable.coins })}
-          className="relative flex items-center gap-2 justify-self-end rounded-full bg-primary py-2 pl-3 pr-5 font-display text-lg font-black text-primary-foreground shadow-md focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
+          className="relative flex items-center gap-2 justify-self-end rounded-full border-b-4 border-black/15 bg-linear-to-b from-secondary to-accent py-1 pl-1 pr-4 font-display text-lg font-black text-secondary-foreground shadow-[0_4px_12px_-6px_var(--primary)] transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0.5 active:scale-95 active:border-b-2 focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
         >
-          <PetArt
-            species={shown?.species ?? "horse"}
-            className={cn("-my-1 size-10", shown && !shown.alive && "grayscale")}
-          />
+          {/* The pet lives in a bubble and bobs gently, so the button reads as
+              a friend waiting rather than a menu item. One that needs care
+              wiggles instead — a nudge that does not need reading. */}
+          <span className="flex size-10 items-center justify-center rounded-full bg-card shadow-inner">
+            <motion.span
+              className="flex"
+              animate={
+                needy
+                  ? { rotate: [0, -12, 12, -8, 0], y: 0 }
+                  : shown?.alive === false
+                    ? { rotate: 0, y: 0 }
+                    : { rotate: 0, y: [0, -3, 0] }
+              }
+              transition={
+                needy
+                  ? { duration: 0.7, repeat: Infinity, repeatDelay: 1.6 }
+                  : { duration: 2.2, repeat: Infinity, ease: "easeInOut" }
+              }
+            >
+              <PetArt
+                species={shown?.species ?? "horse"}
+                className={cn("size-8", shown && !shown.alive && "grayscale")}
+              />
+            </motion.span>
+          </span>
           {t("pets")}
           {/* A dot rather than words: it has to read at a glance, mid-game,
               without pulling attention off the question. */}

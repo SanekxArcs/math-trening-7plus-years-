@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Check, Copy, KeyRound } from "lucide-react";
 import { useI18n } from "@/i18n/useI18n";
+import { cn } from "@/lib/utils";
+import { dockIconClass } from "./BottomBar";
 
 /**
  * The pairing code, always reachable from the game.
@@ -43,7 +45,7 @@ export function PairCodeBadge({ pairCode }: { pairCode: string }) {
         onClick={reveal}
         aria-expanded={open}
         aria-label={open ? t("copyCode") : t("pairingCode")}
-        className="rounded-full p-2.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
+        className={cn(dockIconClass, open && "bg-card text-foreground")}
       >
         {copied ? (
           <Check className="size-5 text-correct" aria-hidden />
@@ -60,7 +62,7 @@ export function PairCodeBadge({ pairCode }: { pairCode: string }) {
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 6 }}
-            className="absolute bottom-full left-0 mb-3 whitespace-nowrap rounded-full border border-border bg-card px-4 py-2 font-display text-sm font-black tracking-[0.2em] text-foreground shadow-lg"
+            className="absolute bottom-full left-0 mb-4 whitespace-nowrap rounded-full border border-border bg-card px-4 py-2 font-display text-sm font-black tracking-[0.2em] text-foreground shadow-lg"
           >
             {pairCode}
           </motion.span>
