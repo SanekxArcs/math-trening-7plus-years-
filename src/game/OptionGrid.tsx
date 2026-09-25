@@ -10,7 +10,8 @@ interface OptionGridProps {
   hidden: number[];
   revealed: boolean;
   chosen: number | null;
-  onPick: (value: number) => void;
+  /** `from` is where the tapped tile is, so the answer can fly out of it. */
+  onPick: (value: number, from: DOMRect) => void;
 }
 
 type TileState = "correct" | "wrong" | "dim" | "hidden" | undefined;
@@ -55,7 +56,7 @@ export function OptionGrid({
             key={`${value}-${index}`}
             type="button"
             disabled={revealed || isHidden}
-            onClick={() => onPick(value)}
+            onClick={(event) => onPick(value, event.currentTarget.getBoundingClientRect())}
             aria-label={t("answerN", { value })}
             data-state={state}
             // Dealt in like cards, one after another.

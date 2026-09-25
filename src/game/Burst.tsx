@@ -11,7 +11,7 @@ const COUNT = 10;
  *
  * Mount it with a fresh key to fire it again.
  */
-export function Burst({ distance = 56 }: { distance?: number }) {
+export function Burst({ distance = 56, delay = 0 }: { distance?: number; delay?: number }) {
   const reduce = useReducedMotion();
   if (reduce) return null;
 
@@ -35,7 +35,7 @@ export function Burst({ distance = 56 }: { distance?: number }) {
               scale: [0, 1.3, 0],
               opacity: [1, 1, 0],
             }}
-            transition={{ duration: 0.7, ease: "easeOut" }}
+            transition={{ duration: 0.7, ease: "easeOut", delay }}
           />
         );
       })}

@@ -175,6 +175,16 @@ export function GameScreen({
     game.restart();
   };
 
+  /**
+   * Where the right answer was tapped, for its jump into the sum. Tied to the
+   * question like the hint, so it can never replay on the next one.
+   */
+  const [flight, setFlight] = useState<{ questionId: number; from: DOMRect } | null>(null);
+  const pick = (value: number, from: DOMRect) => {
+    if (value === problem.answer) setFlight({ questionId: state.questionId, from });
+    game.answer(value);
+  };
+
   const toggleHint = () => {
     if (hintOpen) {
       setHintFor(null);
@@ -213,6 +223,7 @@ export function GameScreen({
         answer={problem.answer}
         typed={state.question.mode === "type" ? state.typed : null}
         outcome={outcome}
+        flyFrom={flight?.questionId === state.questionId ? flight.from : null}
       />
 
       <section>
@@ -234,7 +245,7 @@ export function GameScreen({
             hidden={state.hidden}
             revealed={revealed}
             chosen={outcome?.given ?? null}
-            onPick={game.answer}
+            onPick={pick}
           />
         )}
       </section>
