@@ -7,6 +7,7 @@ import {
   defaultRng,
   factId,
   halfHalfRemoves,
+  isGameLost,
   isGoalReached,
   nextQuestion,
   questionFitsSettings,
@@ -78,6 +79,8 @@ export interface GameState {
   won: boolean;
   /** The session was ended on purpose rather than by reaching the goal. */
   stopped: boolean;
+  /** The points sank too far below zero: the game, and the level, are lost. */
+  lost: boolean;
   /**
    * Every reason the clock is currently stopped. A set rather than a boolean
    * because two owners — the pause button and the tab going away — must not be
@@ -149,6 +152,7 @@ export interface SessionSnapshot {
   score: ScoreState;
   won: boolean;
   stopped: boolean;
+  lost: boolean;
   halfHalfReadyAt: number;
   /** The unanswered question on screen; null once it has been settled. */
   question: Question | null;
@@ -177,6 +181,7 @@ export function createInitialState(
     score: resume?.score ?? INITIAL_SCORE,
     won: resume?.won ?? false,
     stopped: resume?.stopped ?? false,
+    lost: resume?.lost ?? false,
     pausedBy: [],
     paused: false,
     pausedAt: null,
@@ -200,7 +205,7 @@ export function createInitialState(
   // A session that had already ended comes back ended, showing the same summary
   // it was showing before — rather than silently resuming above the goal, where
   // the next right answer would fire the win a second time.
-  return state.won || state.stopped ? { ...state, phase: "finished" } : state;
+  return state.won || state.stopped || state.lost ? { ...state, phase: "finished" } : state;
 }
 
 function settle(
@@ -251,12 +256,14 @@ function settle(
   };
 
   const won = isGoalReached(result.state, state.settings);
+  const lost = !won && isGameLost(result.state, state.settings);
 
   return {
     ...state,
     score: result.state,
-    phase: won ? "finished" : "revealed",
+    phase: won || lost ? "finished" : "revealed",
     won,
+    lost,
     outcome: {
       isCorrect,
       given,
@@ -410,6 +417,7 @@ export function gameReducer(state: GameState, action: Action): GameState {
         score: INITIAL_SCORE,
         won: false,
         stopped: false,
+        lost: false,
         pausedBy: [],
         paused: false,
         pausedAt: null,
@@ -554,6 +562,7 @@ export function useGame({
       score: state.score,
       won: state.won,
       stopped: state.stopped,
+      lost: state.lost,
       halfHalfReadyAt: state.halfHalfReadyAt,
       // Only a question still waiting for an answer is worth keeping. One that
       // has been settled would come back already answered, and the reveal it
@@ -568,6 +577,7 @@ export function useGame({
     state.score,
     state.won,
     state.stopped,
+    state.lost,
     state.halfHalfReadyAt,
     state.question,
     state.phase,

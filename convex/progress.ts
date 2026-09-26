@@ -29,8 +29,8 @@ export const forDevice = query({
  * The newest snapshot wins, by the device clock of the change it carries: a
  * device coming back online with an older copy — the tablet that sat in a
  * drawer while the phone was played on — must not overwrite newer progress.
- * The level is the exception, kept at the highest either side has seen,
- * because a level is never taken away.
+ * The level is part of the snapshot like everything else: losing a game sends
+ * it back to 1, so "keep the highest" would quietly undo that.
  */
 export const save = mutation({
   args: {
@@ -59,15 +59,11 @@ export const save = mutation({
       return { status: "ok" as const, applied: true };
     }
 
-    const level = Math.max(existing.level, incoming.level);
     if (incoming.savedAt < existing.savedAt) {
-      if (level !== existing.level) {
-        await ctx.db.patch(existing._id, { level, updatedAt: Date.now() });
-      }
       return { status: "ok" as const, applied: false };
     }
 
-    await ctx.db.patch(existing._id, { ...incoming, level, updatedAt: Date.now() });
+    await ctx.db.patch(existing._id, { ...incoming, updatedAt: Date.now() });
     return { status: "ok" as const, applied: true };
   },
 });

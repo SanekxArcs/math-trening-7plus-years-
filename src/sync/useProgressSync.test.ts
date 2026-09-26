@@ -72,6 +72,18 @@ describe("useProgressSync", () => {
     expect(save).not.toHaveBeenCalled();
   });
 
+  it("sends a level lowered by a lost game, rather than taking the backup's higher one", () => {
+    remote.value = backup({ savedAt: 1, level: 3 });
+    // The lost game stamps the stable, so this device's copy is the newer.
+    updateStable((stable) => ({ ...stable, coins: 12 }));
+    localStorage.setItem("math_master_level", "1");
+    renderHook(() => useProgressSync(identity));
+
+    expect(readLevel()).toBe(1);
+    act(() => vi.advanceTimersByTime(1000));
+    expect(save.mock.calls[0]?.[0]).toMatchObject({ progress: { level: 1 } });
+  });
+
   it("sends a change made on this device once it is newer than the backup", () => {
     remote.value = backup({ savedAt: 1 });
     updateStable((stable) => ({ ...stable, coins: 12 }));

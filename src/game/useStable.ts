@@ -135,6 +135,20 @@ export function updateStable(step: (stable: Stable) => Stable): void {
   write({ ...next, savedAt: Math.max(Date.now(), current.savedAt + 1) });
 }
 
+/**
+ * Stamps the device's copy as changed now, for a change kept outside the
+ * stable — the level — so the backup takes this device's copy as the newest.
+ *
+ * Never on a device that has not changed anything yet: stamping an empty,
+ * freshly linked stable would make it look newer than the real backup and
+ * send it over the top of the child's pets.
+ */
+export function touchStable(): void {
+  const current = getSnapshot();
+  if (current.savedAt === 0) return;
+  write({ ...current, savedAt: Math.max(Date.now(), current.savedAt + 1) });
+}
+
 /** Swaps in a copy from the backup, keeping its stamp so it is not sent back. */
 export function restoreStable(stable: Stable): void {
   write(stable);

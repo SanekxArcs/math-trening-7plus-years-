@@ -365,6 +365,25 @@ describe("GameScreen", () => {
     expect(within(header!).getByText("0")).toBeInTheDocument();
   });
 
+  it("loses the game, and the level, when the points sink to a quarter of the goal below zero", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("math_master_level", "2");
+    // Level 2 of a 20-point goal plays to 30, so the game is lost at -8:
+    // a single first mistake (-10) is enough.
+    renderGame({ difficulty: "medium", timerEnabled: false, goalEnabled: true, goalTarget: 20 });
+
+    const answer = solveVisibleQuestion();
+    await user.click(optionButtons().find((b) => Number(b.textContent) !== answer)!);
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Oh no, game over!")).toBeInTheDocument();
+    expect(localStorage.getItem("math_master_level")).toBe("1");
+
+    await user.click(within(dialog).getByRole("button", { name: "Start again from level 1" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(within(document.querySelector("header")!).getByText("Lv 1")).toBeInTheDocument();
+  });
+
   it("does not move a child up for stopping early", async () => {
     const user = userEvent.setup();
     renderGame({ timerEnabled: false, goalEnabled: true, goalTarget: 500 });

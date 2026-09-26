@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Eye, Flag, Moon, Pause, Play, Settings2, Sun, Trophy } from "lucide-react";
+import { Eye, Flag, HeartCrack, Moon, Pause, Play, Settings2, Sun, Trophy } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   displayPoints,
@@ -88,7 +88,7 @@ export function GameScreen({
    * settings change and starts a fresh round, so an object rebuilt on every
    * render would restart the question forever.
    */
-  const [level, advanceLevel] = useLocalLevel();
+  const [level, advanceLevel, resetLevel] = useLocalLevel();
   const settings = useMemo(
     () => settingsForLevel(baseSettings, level),
     [baseSettings, level],
@@ -149,6 +149,8 @@ export function GameScreen({
   /** The pet the nudges are about: whoever needs care, else whoever is on screen. */
   const needy = petNeedingCare(stable);
   const [reward, setReward] = useState<Reward | null>(null);
+  /** The level a lost game was played at, for the "back to level 1" message. */
+  const [lostFrom, setLostFrom] = useState<number | null>(null);
   /** Set when "finish for today" is what ended the session: the payout then puts the pets to bed too. */
   const bedtime = useRef(false);
   const wasFinished = useRef(state.phase === "finished");
@@ -158,7 +160,16 @@ export function GameScreen({
     wasFinished.current = finished;
     if (!finished) {
       setReward(null);
+      setLostFrom(null);
       return;
+    }
+    // Lost: the level goes with it, at once — waiting for a button would let
+    // a reload, or just walking away, keep a level the rules took back. The
+    // goal changing does not disturb the finished board: only a change to
+    // the questions themselves starts a new round.
+    if (state.lost) {
+      setLostFrom(level);
+      resetLevel();
     }
     const now = Date.now();
     const sleep = bedtime.current;
@@ -180,7 +191,7 @@ export function GameScreen({
       return sleep ? putToSleep(next, now) : next;
     });
     setReward(paid);
-  }, [state.phase, state.won, state.score, settings.goalEnabled, settings.goalTarget, level]);
+  }, [state.phase, state.won, state.lost, state.score, settings.goalEnabled, settings.goalTarget, level, resetLevel]);
 
   /**
    * The end of the day: the session is closed (and paid, if it earned
@@ -421,6 +432,31 @@ export function GameScreen({
                   <Play className="size-5" aria-hidden />
                   {t("playMore")}
                 </button>
+              </GameDialog>
+            ) : state.lost ? (
+              // Lost. Said plainly, with the way back up right under it.
+              <GameDialog tone="lost" hero={<HeartCrack className="size-11" aria-hidden />}>
+                <DialogTitle>{t("lostTitle")}</DialogTitle>
+                <p className="mt-1.5 text-sm text-muted-foreground">
+                  {lostFrom !== null && lostFrom > 1
+                    ? t("lostBlurb", { points: state.score.rawPoints })
+                    : t("lostBlurbFirst", { points: state.score.rawPoints })}
+                </p>
+                <SessionStats score={state.score} className="mt-5" />
+                <button type="button" onClick={game.restart} className={cn(primaryActionClass, "mt-6")}>
+                  <Play className="size-5" fill="currentColor" aria-hidden />
+                  {lostFrom !== null && lostFrom > 1 ? t("startOver") : t("playAgain")}
+                </button>
+                <Link to="/pets" className={cn(ghostActionClass, "mt-1")}>
+                  <PetArt species={shown?.species ?? "horse"} className="size-7" />
+                  {t("visitHorse")}
+                </Link>
+                {stable.pets.length > 0 && (
+                  <button type="button" onClick={finishToday} className={ghostActionClass}>
+                    <Moon className="size-4" aria-hidden />
+                    {t("finishToday")}
+                  </button>
+                )}
               </GameDialog>
             ) : (
               <GameDialog

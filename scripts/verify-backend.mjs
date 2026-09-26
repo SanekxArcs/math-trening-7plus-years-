@@ -268,7 +268,15 @@ await client.mutation(anyApi.progress.save, {
 });
 const afterOld = await client.query(anyApi.progress.forDevice, { profileId, deviceToken });
 check("an older copy does not overwrite a newer one", afterOld.progress?.coins === 42);
-check("but a higher level is still kept", afterOld.progress?.level === 5);
+check("and neither does its level", afterOld.progress?.level === 3);
+
+await client.mutation(anyApi.progress.save, {
+  profileId,
+  deviceToken,
+  progress: backup({ savedAt: 3000, level: 1 }),
+});
+const afterLoss = await client.query(anyApi.progress.forDevice, { profileId, deviceToken });
+check("a newer copy can lower the level, after a lost game", afterLoss.progress?.level === 1);
 
 const refused = await client.mutation(anyApi.progress.save, {
   profileId,

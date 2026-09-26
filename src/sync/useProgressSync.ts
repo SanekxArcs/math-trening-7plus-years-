@@ -5,7 +5,7 @@ import type { Id } from "@convex/_generated/dataModel";
 import { convex } from "@/lib/convex";
 import type { Pet, Stable } from "@/engine";
 import { readStable, restoreStable, useStable } from "@/game/useStable";
-import { raiseLevel, useLocalLevel } from "@/game/useLocalLevel";
+import { setLevel, useLocalLevel } from "@/game/useLocalLevel";
 import type { IdentityState } from "./useSync";
 
 /** Long enough to fold a burst of shop taps into one write. */
@@ -39,7 +39,8 @@ function toBackup(stable: Stable, level: number) {
  * Local-first like everything else: the device's copy is what the game plays
  * with, and this copies it up when it changes and down when the backup is
  * newer — which is what a freshly linked device sees on its first load. The
- * newest change wins as a whole; the level is the highest either side has.
+ * newest change wins as a whole, the level included: a game lost resets it,
+ * and that has to reach the backup rather than be undone by it.
  *
  * Nothing is sent until the backup has been read at least once. A device
  * that has just been linked starts with an empty stable, and pushing that
@@ -61,11 +62,14 @@ export function useProgressSync(identity: IdentityState): void {
   useEffect(() => {
     if (remote?.status !== "ok" || !remote.progress) return;
     const { level: backedUpLevel, ...backup } = remote.progress;
-    raiseLevel(backedUpLevel);
+    const local = readStable();
+    if (backup.savedAt <= local.savedAt) return;
+    // The level comes as part of the newer copy, exactly as it is — lower
+    // included, after a game lost on another device.
+    setLevel(backedUpLevel);
     // Bedtime is not backed up — it is about this device's day — so the
     // local one is kept across a restore.
-    const local = readStable();
-    if (backup.savedAt > local.savedAt) restoreStable({ ...backup, asleepSince: local.asleepSince });
+    restoreStable({ ...backup, asleepSince: local.asleepSince });
   }, [remote]);
 
   // Up: a newer device copy, or a higher level, is sent after a short pause.
@@ -73,8 +77,12 @@ export function useProgressSync(identity: IdentityState): void {
     if (!args || remote?.status !== "ok") return;
     const backup = remote.progress;
     const newer = stable.savedAt > (backup?.savedAt ?? 0);
-    const higher = level > (backup?.level ?? 1);
-    if (!newer && !higher) return;
+    // A level moved on this device with nothing else changing — the next level
+    // after coins were already sent — still goes up, as long as this copy is
+    // not older than the backup's.
+    const levelMoved =
+      level !== (backup?.level ?? 1) && stable.savedAt >= (backup?.savedAt ?? 0) && stable.savedAt > 0;
+    if (!newer && !levelMoved) return;
 
     const id = window.setTimeout(() => {
       save({ ...args, progress: toBackup(stable, level) }).catch(() => {

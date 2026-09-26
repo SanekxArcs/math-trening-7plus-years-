@@ -174,6 +174,7 @@ describe("resuming a session", () => {
       wrong: 1,
     },
     won: false,
+    lost: false,
     stopped: false,
     halfHalfReadyAt: T0 + 20_000,
     question: stored,
@@ -257,6 +258,7 @@ describe("resuming a session", () => {
     const state = createInitialState(DEFAULT_SETTINGS, T0, () => new Map(), {
       ...snapshot,
       won: true,
+      lost: false,
     });
 
     expect(state.phase).toBe("finished");

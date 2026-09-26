@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SETTINGS, goalForLevel, hasNextLevel, settingsForLevel } from "./index.ts";
+import {
+  DEFAULT_SETTINGS,
+  INITIAL_SCORE,
+  goalForLevel,
+  hasNextLevel,
+  isGameLost,
+  lossLimit,
+  settingsForLevel,
+} from "./index.ts";
 
 describe("levels", () => {
   it("asks for half again as many points each time, in round numbers", () => {
@@ -32,5 +40,21 @@ describe("levels", () => {
     const noGoal = { ...DEFAULT_SETTINGS, goalEnabled: false };
     expect(settingsForLevel(noGoal, 5)).toBe(noGoal);
     expect(hasNextLevel(noGoal, 1)).toBe(false);
+  });
+});
+
+describe("losing", () => {
+  const settings = { ...DEFAULT_SETTINGS, goalEnabled: true, goalTarget: 300 };
+  const score = (rawPoints: number) => ({ ...INITIAL_SCORE, rawPoints });
+
+  it("is lost at minus a quarter of the goal", () => {
+    expect(lossLimit(300)).toBe(75);
+    expect(isGameLost(score(-74), settings)).toBe(false);
+    expect(isGameLost(score(-75), settings)).toBe(true);
+    expect(isGameLost(score(-120), settings)).toBe(true);
+  });
+
+  it("cannot be lost without a goal", () => {
+    expect(isGameLost(score(-9999), { ...settings, goalEnabled: false })).toBe(false);
   });
 });

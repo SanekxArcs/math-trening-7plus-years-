@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
-import { Star, Trophy } from "lucide-react";
-import type { ScoreState } from "@/engine";
+import { Star, TriangleAlert, Trophy } from "lucide-react";
+import { lossLimit, type ScoreState } from "@/engine";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/useI18n";
 import { CoinCount } from "@/pets/CoinCount";
@@ -167,6 +167,11 @@ function Points({ shown, total, pulse }: { shown: number; total?: number; pulse:
 /**
  * The road to the goal. The trophy at the end wakes up in the last stretch, so
  * a child can feel the finish coming without doing the subtraction.
+ *
+ * Below zero the same bar turns round and becomes the danger meter: red,
+ * filling towards the limit where the game is lost, with a warning sign where
+ * the trophy was — so the child can see how close the edge is before they
+ * reach it, not only after.
  */
 function GoalBar({
   points,
@@ -179,8 +184,13 @@ function GoalBar({
   goal: number;
   pulse: Pulse;
 }) {
-  const fraction = Math.max(0, Math.min(1, points / goal));
-  const close = fraction >= 0.75;
+  const { t } = useI18n();
+  const danger = points < 0;
+  const limit = lossLimit(goal);
+  const fraction = danger
+    ? Math.min(1, -points / limit)
+    : Math.max(0, Math.min(1, points / goal));
+  const close = fraction >= (danger ? 0.5 : 0.75);
 
   return (
     <div className="flex items-center gap-2.5">
@@ -188,11 +198,17 @@ function GoalBar({
         className="relative h-4 flex-1 rounded-full bg-muted shadow-[inset_0_1px_3px_oklch(0_0_0/0.14)]"
         role="progressbar"
         aria-valuemin={0}
-        aria-valuemax={goal}
-        aria-valuenow={Math.max(0, Math.min(points, goal))}
+        aria-valuemax={danger ? limit : goal}
+        aria-valuenow={danger ? Math.min(-points, limit) : Math.max(0, Math.min(points, goal))}
+        {...(danger ? { "aria-label": t("lossLimitLabel", { points: -limit }) } : {})}
       >
         <motion.div
-          className="hud-sheen relative h-full overflow-hidden rounded-full bg-linear-to-r from-correct to-[oklch(0.8_0.17_135)] shadow-[0_0_10px_-2px_var(--correct)]"
+          className={cn(
+            "hud-sheen relative h-full overflow-hidden rounded-full bg-linear-to-r",
+            danger
+              ? "from-wrong to-[oklch(0.7_0.2_40)] shadow-[0_0_10px_-2px_var(--wrong)]"
+              : "from-correct to-[oklch(0.8_0.17_135)] shadow-[0_0_10px_-2px_var(--correct)]",
+          )}
           initial={false}
           animate={{ width: `${fraction * 100}%` }}
           transition={{ type: "spring", stiffness: 140, damping: 22 }}
@@ -214,19 +230,23 @@ function GoalBar({
         ))}
       </div>
 
-      <Points shown={shown} total={goal} pulse={pulse} />
+      <Points shown={shown} total={danger ? -limit : goal} pulse={pulse} />
 
       <motion.span
         animate={close ? { scale: [1, 1.15, 1], rotate: [0, -8, 8, 0] } : { scale: 1, rotate: 0 }}
-        transition={close ? { duration: 1.2, repeat: Infinity, ease: "easeInOut" } : { duration: 0.3 }}
+        transition={
+          close ? { duration: danger ? 0.8 : 1.2, repeat: Infinity, ease: "easeInOut" } : { duration: 0.3 }
+        }
         className={cn(
           "flex size-8 shrink-0 items-center justify-center rounded-full transition-colors duration-500",
-          close
-            ? "bg-linear-to-b from-combo to-[oklch(0.7_0.19_50)] text-combo-foreground shadow-[0_0_14px_-2px_var(--combo)]"
-            : "bg-muted text-muted-foreground",
+          danger
+            ? "bg-linear-to-b from-wrong to-[oklch(0.5_0.2_15)] text-wrong-foreground shadow-[0_0_14px_-2px_var(--wrong)]"
+            : close
+              ? "bg-linear-to-b from-combo to-[oklch(0.7_0.19_50)] text-combo-foreground shadow-[0_0_14px_-2px_var(--combo)]"
+              : "bg-muted text-muted-foreground",
         )}
       >
-        <Trophy className="size-4" aria-hidden />
+        {danger ? <TriangleAlert className="size-4" aria-hidden /> : <Trophy className="size-4" aria-hidden />}
       </motion.span>
     </div>
   );

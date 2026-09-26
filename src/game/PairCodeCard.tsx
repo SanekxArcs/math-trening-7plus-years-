@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { motion } from "motion/react";
+import { motion, type MotionStyle } from "motion/react";
 import { Check, Copy, KeyRound } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/useI18n";
+import { primaryActionClass, secondaryActionClass } from "./GameDialog";
+import { WelcomeCard, WelcomeShell } from "./WelcomeShell";
 
 interface PairCodeCardProps {
   pairCode: string;
@@ -16,6 +18,9 @@ interface PairCodeCardProps {
  * Without this the code is unreachable: it is generated on the device and only
  * displayed inside the dashboard, which cannot be opened without it. The parent
  * has to see it exactly once, at the only moment they are certainly present.
+ *
+ * Each character gets a tile of its own, so it can be read out and copied
+ * down one at a time without losing the place.
  */
 export function PairCodeCard({ pairCode, name, onDone }: PairCodeCardProps) {
   const { t } = useI18n();
@@ -33,41 +38,43 @@ export function PairCodeCard({ pairCode, name, onDone }: PairCodeCardProps) {
   };
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-5 py-8">
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="space-y-6 rounded-[--radius-xl] bg-card p-7 text-center shadow-xl"
-      >
-        <KeyRound className="mx-auto size-10 text-primary" aria-hidden />
-
+    <WelcomeShell>
+      <WelcomeCard hero={<KeyRound className="size-10 text-primary" aria-hidden />} className="space-y-6 text-center">
         <div>
           <h1 className="font-display text-2xl font-black">{t("writeThisDown")}</h1>
           <p className="mt-2 text-sm text-muted-foreground">{t("pairCodeBlurb", { name })}</p>
         </div>
 
         <p
-          className="select-all rounded-[--radius-md] bg-muted py-5 font-display text-4xl font-black tracking-[0.3em]"
+          className="flex select-all justify-center gap-1.5 sm:gap-2"
+          role="img"
           aria-label={pairCode.split("").join(" ")}
         >
-          {pairCode}
+          {pairCode.split("").map((char, index) => (
+            <motion.span
+              key={index}
+              initial={{ opacity: 0, y: -20, rotateX: 90 }}
+              animate={{ opacity: 1, y: 0, rotateX: 0 }}
+              transition={{ type: "spring", stiffness: 380, damping: 18, delay: 0.3 + index * 0.08 }}
+              className="answer-tile flex h-14 w-11 items-center justify-center font-display text-3xl font-black sm:h-16 sm:w-12"
+              style={{ "--tile": `var(--option-${index % 6})`, transformPerspective: 400 } as MotionStyle}
+            >
+              <span className="relative">{char}</span>
+            </motion.span>
+          ))}
         </p>
 
-        <Button variant="outline" onClick={copy} className="w-full">
-          {copied ? (
-            <Check className="size-4" aria-hidden />
-          ) : (
-            <Copy className="size-4" aria-hidden />
-          )}
+        <button type="button" onClick={copy} className={cn(secondaryActionClass, copied && "text-correct")}>
+          {copied ? <Check className="size-4" strokeWidth={3} aria-hidden /> : <Copy className="size-4" aria-hidden />}
           {copied ? t("copied") : t("copyCode")}
-        </Button>
+        </button>
 
         <p className="text-xs text-muted-foreground">{t("pairCodeFindAgain")}</p>
 
-        <Button onClick={onDone} size="lg" className="w-full font-display text-lg">
+        <button type="button" onClick={onDone} className={primaryActionClass}>
           {t("gotIt")}
-        </Button>
-      </motion.div>
-    </main>
+        </button>
+      </WelcomeCard>
+    </WelcomeShell>
   );
 }

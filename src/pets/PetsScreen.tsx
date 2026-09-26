@@ -125,7 +125,7 @@ export function PetsScreen() {
   // Read once: nothing on this screen changes the session.
   const [session] = useState(() => {
     const saved = readSession();
-    return saved && !saved.stopped && !saved.won ? saved : null;
+    return saved && !saved.stopped && !saved.won && !saved.lost ? saved : null;
   });
 
   return (

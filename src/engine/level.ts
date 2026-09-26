@@ -1,4 +1,5 @@
 import type { GameSettings } from "./types.ts";
+import type { ScoreState } from "./scoring.ts";
 
 /** Each level asks for half again as many points as the one before. */
 const GROWTH = 1.5;
@@ -42,4 +43,24 @@ export function settingsForLevel(settings: GameSettings, level: number): GameSet
 export function hasNextLevel(settings: GameSettings, level: number): boolean {
   if (!settings.goalEnabled) return false;
   return goalForLevel(settings.goalTarget, level + 1) > goalForLevel(settings.goalTarget, level);
+}
+
+/** How far below zero a level can fall, as a share of its goal, before it is lost. */
+export const LOSS_SHARE = 0.25;
+
+/**
+ * The points below zero that end the game: a quarter of the goal being
+ * played to, so a bigger level can absorb a proportionally bigger bad run.
+ */
+export function lossLimit(goal: number): number {
+  return Math.max(1, Math.ceil(goal * LOSS_SHARE));
+}
+
+/**
+ * Lost: the true total has sunk to minus a quarter of the goal. The level is
+ * then gone too — the child starts again from level 1. Only a game with a
+ * goal can be lost; with the goal switched off there is no level to lose.
+ */
+export function isGameLost(score: ScoreState, settings: GameSettings): boolean {
+  return settings.goalEnabled && score.rawPoints <= -lossLimit(settings.goalTarget);
 }

@@ -115,6 +115,7 @@ export function readSession(now: number = Date.now()): SessionSnapshot | null {
       score: toScore(source.score),
       won: source.won === true,
       stopped: source.stopped === true,
+      lost: source.lost === true,
       halfHalfReadyAt: num(source.halfHalfReadyAt),
       question,
       // Tied to the question: without one there is nothing for a spent lifeline

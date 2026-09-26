@@ -14,6 +14,7 @@ const snapshot = {
     wrong: 2,
   },
   won: false,
+  lost: false,
   stopped: false,
   halfHalfReadyAt: T0 + 5000,
   question: {

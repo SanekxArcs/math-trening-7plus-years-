@@ -24,11 +24,12 @@ export function Backdrop({ children }: { children: React.ReactNode }) {
   );
 }
 
-export type DialogTone = "primary" | "win" | "night";
+export type DialogTone = "primary" | "win" | "night" | "lost";
 
 const HERO_TONE: Record<DialogTone, string> = {
   primary: "from-primary to-primary/75 text-primary-foreground shadow-[0_10px_30px_-8px_var(--primary)]",
   win: "from-combo to-[oklch(0.7_0.19_50)] text-combo-foreground shadow-[0_10px_30px_-8px_var(--combo)]",
+  lost: "from-wrong to-[oklch(0.5_0.2_15)] text-wrong-foreground shadow-[0_10px_30px_-8px_var(--wrong)]",
   night:
     "from-[oklch(0.42_0.14_280)] to-[oklch(0.28_0.1_275)] text-[oklch(0.95_0.05_90)] shadow-[0_10px_30px_-8px_oklch(0.35_0.14_280)]",
 };
