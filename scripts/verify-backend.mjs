@@ -242,6 +242,9 @@ const pet = (over = {}) => ({
   diedAt: null,
   vacation: false,
   lastPettedAt: 0,
+  lastPlayedAt: 0,
+  owned: ["crown"],
+  worn: { hat: "crown" },
   ...over,
 });
 const backup = (over = {}) => ({
@@ -260,6 +263,7 @@ check("a new profile has no backup yet", empty.status === "ok" && empty.progress
 await client.mutation(anyApi.progress.save, { profileId, deviceToken, progress: backup() });
 const stored = await client.query(anyApi.progress.forDevice, { profileId, deviceToken });
 check("stores coins, pets and level", stored.progress?.coins === 42 && stored.progress?.pets?.[0]?.name === "Bella" && stored.progress?.level === 3);
+check("keeps what the pets wear", stored.progress?.pets?.[0]?.worn?.hat === "crown" && stored.progress?.pets?.[0]?.owned?.[0] === "crown");
 
 await client.mutation(anyApi.progress.save, {
   profileId,

@@ -488,7 +488,9 @@ describe("GameScreen", () => {
 
     await finishForToday(user);
 
-    const dialog = await screen.findByRole("dialog");
+    // The question it answered is still animating out; wait for the one left.
+    await waitFor(() => expect(screen.getAllByRole("dialog")).toHaveLength(1));
+    const dialog = screen.getByRole("dialog");
     expect(within(dialog).queryByText(/coins/)).toBeNull();
     expect(localStorage.getItem("math_master_stable")).toBeNull();
   });

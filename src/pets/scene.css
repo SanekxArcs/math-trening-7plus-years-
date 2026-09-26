@@ -1,0 +1,41 @@
+/* The homes' little bits of life: waves, falling snow, twinkling stars, stage lights. */
+
+.scene-wave { animation: scene-wave 4s ease-in-out infinite; }
+.scene-wave--slow { animation-duration: 6s; animation-direction: reverse; }
+.scene-snow { animation: scene-snow 6s linear infinite; }
+.scene-star { animation: scene-star 2.4s ease-in-out infinite; }
+.scene-beam { animation: scene-beam 5s ease-in-out infinite; }
+.scene-bob { animation: scene-bob 1.2s ease-in-out infinite; }
+
+.scene--still *,
+.scene--still {
+  animation: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .scene,
+  .scene * {
+    animation: none !important;
+  }
+}
+
+@keyframes scene-wave {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(20px); }
+}
+@keyframes scene-snow {
+  0% { transform: translate(0, -40px); opacity: 0; }
+  10% { opacity: 1; }
+  100% { transform: translate(12px, 200px); opacity: 0; }
+}
+@keyframes scene-beam {
+  0%, 100% { transform: rotate(-14deg); }
+  50% { transform: rotate(14deg); }
+}
+@keyframes scene-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+@keyframes scene-star {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}

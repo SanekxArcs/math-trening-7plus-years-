@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils";
 import type { TranslationKey } from "@/i18n/translations";
 import { useI18n } from "@/i18n/useI18n";
 import { PetArt } from "@/pets/PetArt";
+import { readPet } from "@/game/useStable";
 import { primaryActionClass } from "@/game/GameDialog";
 import { AccuracyByOperation, EmptyNote, PracticeTrend, opLabel } from "./charts";
 import { suggest, weeks, type Suggestion } from "./suggestions";
@@ -135,7 +136,7 @@ export function Overview({
         </ul>
       </Panel>
 
-      <PetsPanel pets={data.progress?.pets ?? []} now={now} />
+      <PetsPanel pets={(data.progress?.pets ?? []).flatMap((raw) => readPet(raw) ?? [])} now={now} />
 
       <div className="grid gap-4 md:grid-cols-2">
         <Panel delay={0.1}>
@@ -362,7 +363,7 @@ function PetsPanel({ pets, now }: { pets: Pet[]; now: number }) {
                 )}
               >
                 <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-card shadow-inner">
-                  <PetArt species={pet.species} mood={mood} className={cn("size-10", !pet.alive && "grayscale")} />
+                  <PetArt species={pet.species} mood={mood} worn={pet.worn} className={cn("size-10", !pet.alive && "grayscale")} />
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-display font-black">{pet.name}</p>

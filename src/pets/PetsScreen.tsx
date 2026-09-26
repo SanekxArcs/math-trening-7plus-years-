@@ -1,18 +1,22 @@
-import { useRef, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
-import { Hand, Heart, Moon, PawPrint, Pause, Play, Plus, ShoppingBasket, Sparkles } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion, useAnimate, type MotionStyle } from "motion/react";
+import { Hand, Heart, Moon, PawPrint, Pause, Play, Plus, Shirt, ShoppingBasket, Sparkles } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   PET_COOLDOWN_MS,
+  PLAY_COOLDOWN_MS,
   REVIVE_PRICE,
   SPECIES,
   SPECIES_ORDER,
   activePet,
   adopt,
   buy,
+  buyAccessory,
   canPet,
+  canPlay,
   choose,
   cuddle,
+  finishPlay,
   isAsleep,
   itemsFor,
   needsCare,
@@ -20,8 +24,10 @@ import {
   revive,
   setVacation,
   shownMood,
+  toggleWear,
   whyNot,
   whyNotAdopt,
+  type Accessory,
   type ItemKind,
   type Mood,
   type Pet,
@@ -33,7 +39,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/useI18n";
 import type { TranslationKey } from "@/i18n/translations";
-import { updateStable, useLiveStable, useStable } from "@/game/useStable";
+import { readStable, updateStable, useLiveStable, useStable } from "@/game/useStable";
 import { BottomBar } from "@/game/BottomBar";
 import {
   Backdrop,
@@ -44,10 +50,18 @@ import {
   secondaryActionClass,
 } from "@/game/GameDialog";
 import { Backdrop as WelcomeBackdrop, fieldClass, labelClass } from "@/game/WelcomeShell";
-import type { MotionStyle } from "motion/react";
 import { readSession } from "@/game/useLocalSession";
+import { useLocalSettings } from "@/game/useLocalSettings";
+import { playSound } from "@/game/sound";
+import { celebrateCombo } from "@/game/celebrate";
 import { CoinCount, CoinIcon } from "./CoinCount";
-import { PetArt, hasArt } from "./PetArt";
+import { PetArt, type PetAction } from "./PetArt";
+import { Scene } from "./Scene";
+import { TryOnDialog, Wardrobe, WishBanner } from "./Wardrobe";
+import { CatchGame, type GamePhase } from "./CatchGame";
+import { DEFAULT_NAME, ITEM_NAME, SPECIES_NAME, SPECIES_SAYS } from "./names";
+
+export { SPECIES_NAME } from "./names";
 
 const MOOD_TEXT: Record<Mood, TranslationKey> = {
   happy: "moodHappy",
@@ -75,47 +89,25 @@ const KINDS: { kind: ItemKind; label: TranslationKey }[] = [
   { kind: "vet", label: "shopVet" },
 ];
 
-export const SPECIES_NAME: Record<Species, TranslationKey> = {
-  horse: "speciesHorse",
-  cat: "speciesCat",
-  dog: "speciesDog",
-  bunny: "speciesBunny",
-  unicorn: "speciesUnicorn",
+/** What the pet does with each kind of thing it is given. */
+const KIND_ACTION: Record<ItemKind, PetAction> = {
+  food: "eat",
+  play: "cheer",
+  care: "wash",
+  vet: "cheer",
 };
 
-const DEFAULT_NAME: Record<Species, TranslationKey> = {
-  horse: "horseNamePlaceholder",
-  cat: "catNamePlaceholder",
-  dog: "dogNamePlaceholder",
-  bunny: "bunnyNamePlaceholder",
-  unicorn: "unicornNamePlaceholder",
-};
-
-const ITEM_NAME: Record<string, TranslationKey> = {
-  hay: "itemHay",
-  kibble: "itemKibble",
-  carrot: "itemCarrot",
-  milk: "itemMilk",
-  bone: "itemBone",
-  apple: "itemApple",
-  shrimp: "itemShrimp",
-  sausage: "itemSausage",
-  oats: "itemOats",
-  fish: "itemFish",
-  meat: "itemMeat",
-  lettuce: "itemLettuce",
-  cupcake: "itemCupcake",
-  sweet: "itemSweet",
-  yarn: "itemYarn",
-  ball: "itemBall",
-  strawberry: "itemStrawberry",
-  sponge: "itemSponge",
-  bath: "itemBath",
-  medicine: "itemMedicine",
-};
+const KIND_SOUND = {
+  food: "chomp",
+  play: "pat",
+  care: "splash",
+  vet: "pat",
+} as const;
 
 /** Long enough that a child tapping the name does not stumble into it. */
 const GROWN_UP_PRESS_MS = 2000;
+/** How long an action plays on the pet before it goes back to its mood. */
+const ACTION_MS = 1500;
 
 /**
  * Where the coins go. Deliberately a screen of its own rather than a panel in
@@ -131,11 +123,28 @@ export function PetsScreen() {
   const stable = useLiveStable(useStable());
   const pet = activePet(stable);
   const [shopOpen, setShopOpen] = useState(false);
+  /** The accessory in the try-on, for the pet on screen. */
+  const [trying, setTrying] = useState<Accessory | null>(null);
+  /** Bumped on every purchase, so the pet on screen can celebrate it. */
+  const [bought, setBought] = useState(0);
+  const [settings] = useLocalSettings();
   // Read once: nothing on this screen changes the session.
   const [session] = useState(() => {
     const saved = readSession();
     return saved && !saved.stopped && !saved.won && !saved.lost ? saved : null;
   });
+
+  const buyTrying = () => {
+    if (!pet || !trying) return;
+    const before = readStable();
+    updateStable((current) => buyAccessory(current, pet.id, trying.id, Date.now()));
+    if (readStable() !== before) {
+      playSound("buy", settings.soundEnabled);
+      celebrateCombo();
+      setBought((n) => n + 1);
+    }
+    setTrying(null);
+  };
 
   return (
     <main className="relative mx-auto flex min-h-dvh w-full max-w-xl flex-col gap-4 px-4 pb-28 pt-4">
@@ -159,9 +168,16 @@ export function PetsScreen() {
       {pet ? (
         <>
           <PetTabs stable={stable} active={pet} onAdd={() => setShopOpen(true)} />
+          <WishBanner
+            stable={stable}
+            onOpen={(owner, item) => {
+              updateStable((current) => choose(current, owner.id));
+              setTrying(item);
+            }}
+          />
           {/* Keyed per pet: switching must not carry a floating reaction or a
               half-pressed grown-up switch over to the next one. */}
-          <Stall key={pet.id} stable={stable} pet={pet} />
+          <Stall key={pet.id} stable={stable} pet={pet} sound={settings.soundEnabled} bought={bought} onTry={setTrying} />
         </>
       ) : (
         <Adoption />
@@ -169,6 +185,9 @@ export function PetsScreen() {
 
       <AnimatePresence>
         {shopOpen && <AdoptDialog stable={stable} onClose={() => setShopOpen(false)} />}
+        {pet && trying && (
+          <TryOnDialog stable={stable} pet={pet} item={trying} onBuy={buyTrying} onClose={() => setTrying(null)} />
+        )}
       </AnimatePresence>
 
       <BottomBar>
@@ -243,7 +262,7 @@ function Adoption() {
       className="overflow-hidden rounded-xl border border-border/70 bg-card/90 text-center shadow-[0_18px_50px_-20px_oklch(0.4_0.16_295/0.5)] backdrop-blur-md"
     >
       {/* A meadow for the horse to wait in: the same stage it will live on. */}
-      <Meadow>
+      <Scene>
         <motion.div
           initial={{ y: 30, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -252,7 +271,7 @@ function Adoption() {
         >
           <PetArt species="horse" mood="happy" animated className="size-48" />
         </motion.div>
-      </Meadow>
+      </Scene>
 
       <div className="space-y-4 p-6 pt-5">
         <div>
@@ -266,43 +285,6 @@ function Adoption() {
         </button>
       </div>
     </motion.form>
-  );
-}
-
-/** Sky, sun, a drifting cloud and a green hill: the backdrop every pet stands in. */
-function Meadow({ children, night = false, gone = false }: { children: React.ReactNode; night?: boolean; gone?: boolean }) {
-  return (
-    <div
-      className={cn(
-        "relative flex flex-col items-center overflow-hidden px-6 pt-6",
-        night
-          ? "bg-linear-to-b from-indigo-400 via-indigo-300 to-violet-300 dark:from-indigo-950 dark:via-indigo-950 dark:to-violet-950"
-          : gone
-            ? "bg-linear-to-b from-indigo-200 to-violet-100 dark:from-indigo-950 dark:to-violet-950"
-            : "bg-linear-to-b from-sky-300 via-sky-200 to-sky-100 dark:from-sky-900 dark:via-sky-950 dark:to-sky-950",
-      )}
-    >
-      {!night && !gone && (
-        <span className="pointer-events-none absolute inset-0" aria-hidden>
-          <span className="absolute right-6 top-5 size-12 rounded-full bg-[oklch(0.92_0.14_90)] shadow-[0_0_40px_10px_oklch(0.92_0.14_90/0.6)]" />
-          <motion.span
-            className="absolute top-8 h-6 w-20 rounded-full bg-white/80 shadow-[14px_-8px_0_-2px_rgb(255_255_255/0.8),-12px_-4px_0_-4px_rgb(255_255_255/0.8)]"
-            initial={{ left: "-20%" }}
-            animate={{ left: "110%" }}
-            transition={{ duration: 38, repeat: Infinity, ease: "linear" }}
-          />
-        </span>
-      )}
-      {children}
-      {/* The hill the pet stands on. */}
-      <span
-        className={cn(
-          "pointer-events-none absolute -bottom-10 left-1/2 h-24 w-[140%] -translate-x-1/2 rounded-[50%]",
-          night ? "bg-indigo-900/40 dark:bg-indigo-900/60" : gone ? "bg-violet-200/70 dark:bg-violet-900/40" : "bg-lime-300 dark:bg-lime-900",
-        )}
-        aria-hidden
-      />
-    </div>
   );
 }
 
@@ -357,7 +339,7 @@ function PetTabs({ stable, active, onAdd }: { stable: Stable; active: Pet; onAdd
             )}
           >
             <span className="flex size-9 items-center justify-center rounded-full bg-card shadow-inner">
-              <PetArt species={pet.species} className={cn("size-7", !pet.alive && "grayscale")} />
+              <PetArt species={pet.species} worn={pet.worn} className={cn("size-8", !pet.alive && "grayscale")} />
             </span>
             <span className="max-w-24 truncate">{pet.name}</span>
             {needsCare(pet) && (
@@ -436,7 +418,7 @@ function AdoptDialog({ stable, onClose }: { stable: Stable; onClose: () => void 
                 )}
                 style={{ "--tile": `var(--option-${index % 6})` } as MotionStyle}
               >
-                <PetArt species={species} className="relative size-14" />
+                <PetArt species={species} className="relative size-16" />
                 <span className="relative text-sm font-black text-foreground">{t(SPECIES_NAME[species])}</span>
                 <span className="relative flex items-center gap-1 rounded-full bg-card/80 px-2 py-0.5 font-display text-xs font-black tabular-nums text-foreground">
                   <CoinIcon className="size-3.5" />
@@ -474,26 +456,137 @@ const KIND_HUE: Record<ItemKind, string> = {
   vet: "var(--option-4)",
 };
 
-function Stall({ stable, pet }: { stable: Stable; pet: Pet }) {
+/** Something floating up off the pet: an emoji, or a few words it says. */
+interface Floater {
+  id: number;
+  text: string;
+  /** Where it starts, as a share of the scene; the middle of the pet if left out. */
+  x?: number | undefined;
+  y?: number | undefined;
+  speech?: boolean;
+}
+
+type Tab = "shop" | "wardrobe";
+
+/** What a tapped pet does, in turn: a hop, a wiggle, a spin. */
+const TRICKS = [
+  { y: [0, -30, 0], scaleY: [1, 1.06, 1] },
+  { rotate: [0, -12, 12, -8, 8, 0] },
+  { y: [0, -18, 0], rotate: [0, 360] },
+];
+
+function Stall({
+  stable,
+  pet,
+  sound,
+  bought,
+  onTry,
+}: {
+  stable: Stable;
+  pet: Pet;
+  sound: boolean;
+  bought: number;
+  onTry: (item: Accessory) => void;
+}) {
   const { t } = useI18n();
   const mood = shownMood(stable, pet);
   /** Everything waits for morning: a sleeping pet is not fed or played with. */
   const asleep = isAsleep(stable) && pet.alive;
-  /** The emoji that floats up from the pet after something is used. */
-  const [reaction, setReaction] = useState<{ id: number; emoji: string } | null>(null);
+  const [floaters, setFloaters] = useState<Floater[]>([]);
+  const [action, setAction] = useState<{ id: number; kind: PetAction } | null>(null);
+  const [tab, setTab] = useState<Tab>("shop");
+  const [game, setGame] = useState<GamePhase | null>(null);
+  const [caught, setCaught] = useState(0);
+  // The round's end is called from inside the game's own timer, so it reads
+  // the count from here rather than from the render that started the round.
+  const caughtRef = useRef(0);
+  const taps = useRef(0);
   const [grownUpOpen, setGrownUpOpen] = useState(false);
   const pressTimer = useRef<number | null>(null);
+  const sceneRef = useRef<HTMLDivElement>(null);
+  const [figure, animateFigure] = useAnimate<HTMLButtonElement>();
+  const nextId = useRef(0);
 
-  const react = (emoji: string) => setReaction((last) => ({ id: (last?.id ?? 0) + 1, emoji }));
+  const float = (floater: Omit<Floater, "id">) => {
+    const id = ++nextId.current;
+    setFloaters((current) => [...current.slice(-5), { ...floater, id }]);
+  };
+
+  const act = (kind: PetAction) => {
+    const id = ++nextId.current;
+    setAction({ id, kind });
+    window.setTimeout(() => setAction((current) => (current?.id === id ? null : current)), ACTION_MS);
+  };
+
+  // A purchase made in the try-on, celebrated here where the pet is.
+  const seenBought = useRef(bought);
+  useEffect(() => {
+    if (bought === seenBought.current) return;
+    seenBought.current = bought;
+    act("cheer");
+    float({ text: t("newThingJoy", { name: pet.name }), speech: true });
+    float({ text: "🎉" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bought]);
 
   const use = (item: ShopItem) => {
     updateStable((current) => buy(current, pet.id, item.id, Date.now()));
-    react(item.emoji);
+    act(KIND_ACTION[item.kind]);
+    playSound(KIND_SOUND[item.kind], sound);
+    float({ text: item.emoji });
   };
 
   const pat = () => {
     updateStable((current) => cuddle(current, pet.id, Date.now()));
-    react("💕");
+    float({ text: "💕" });
+  };
+
+  /**
+   * Tapping the pet always gets something back — a hop, a spin, a wiggle, a
+   * word — so it is worth doing for its own sake. Only the first cuddle each
+   * hour makes it happier; the rest are just for fun.
+   */
+  const tapPet = (event: React.PointerEvent) => {
+    const n = taps.current++;
+    if (figure.current) void animateFigure(figure.current, TRICKS[n % TRICKS.length]!, { duration: 0.6, ease: "easeOut" });
+
+    const box = sceneRef.current?.getBoundingClientRect();
+    const x = box ? ((event.clientX - box.left) / box.width) * 100 : undefined;
+    const y = box ? ((event.clientY - box.top) / box.height) * 100 : undefined;
+    float({ text: n % 5 === 4 ? "🌟" : "💖", x, y });
+    if (n % 3 === 0) {
+      const says: TranslationKey = n % 9 === 0 ? SPECIES_SAYS[pet.species] : n % 9 === 3 ? "saysGiggle" : "saysLove";
+      float({ text: t(says), speech: true });
+    }
+    playSound("pat", sound);
+    if (canPet(pet, Date.now())) pat();
+  };
+
+  const startGame = () => {
+    caughtRef.current = 0;
+    setCaught(0);
+    setGame("playing");
+  };
+  const catchOne = (worth: number) => {
+    caughtRef.current += worth;
+    setCaught(caughtRef.current);
+    if (figure.current) void animateFigure(figure.current, { y: [0, -16, 0] }, { duration: 0.35 });
+  };
+  const endGame = () => {
+    updateStable((current) => finishPlay(current, pet.id, caughtRef.current, Date.now()));
+    playSound("win", sound);
+    act("cheer");
+    setGame("done");
+  };
+
+  const wearToggle = (item: Accessory) => {
+    const wasOn = pet.worn[item.slot] === item.id;
+    updateStable((current) => toggleWear(current, pet.id, item.id));
+    if (!wasOn) {
+      act("cheer");
+      playSound("pat", sound);
+      float({ text: "✨" });
+    }
   };
 
   const startPress = () => {
@@ -507,9 +600,13 @@ function Stall({ stable, pet }: { stable: Stable; pet: Pet }) {
   const now = Date.now();
   const petReady = canPet(pet, now);
   const petMinutes = Math.ceil((pet.lastPettedAt + PET_COOLDOWN_MS - now) / 60_000);
+  const playReady = canPlay(pet, now);
+  const playMinutes = Math.ceil((pet.lastPlayedAt + PLAY_COOLDOWN_MS - now) / 60_000);
   const items = itemsFor(pet.species);
   const vacation = onVacation(stable);
   const worried = mood === "sick" || mood === "gone" || mood === "hungry" || mood === "dirty" || mood === "sad";
+  const mud = pet.alive ? Math.floor((100 - pet.clean) / 25) : 0;
+  const tappable = pet.alive && !asleep && game === null;
 
   return (
     <>
@@ -518,28 +615,74 @@ function Stall({ stable, pet }: { stable: Stable; pet: Pet }) {
         animate={{ opacity: 1, y: 0 }}
         className="overflow-hidden rounded-xl border border-border/70 bg-card/90 shadow-[0_18px_50px_-20px_oklch(0.4_0.16_295/0.5)] backdrop-blur-md"
       >
-        <Meadow night={asleep} gone={!pet.alive}>
-          {asleep && <NightSky />}
-          <div className="relative z-10">
-            <PetFigure pet={pet} mood={mood} onPet={petReady && !asleep ? pat : undefined} />
-          </div>
-
-          <AnimatePresence>
-            {reaction && (
-              <motion.span
-                key={reaction.id}
-                initial={{ opacity: 1, y: 0, scale: 0.8 }}
-                animate={{ opacity: 0, y: -90, scale: 1.6 }}
-                transition={{ duration: 1.1 }}
-                onAnimationComplete={() => setReaction(null)}
-                className="pointer-events-none absolute top-1/3 z-20 text-5xl"
+        <div ref={sceneRef} className="relative">
+          <Scene home={pet.worn.home} night={asleep} gone={!pet.alive}>
+            {asleep && <NightSky />}
+            <div className="relative z-10">
+              {/* The pet itself. Every state it can be in shows on the figure,
+                  not only in the bars: a child who cannot read "Clean 20%" yet
+                  can see the mud. */}
+              <motion.button
+                ref={figure}
+                type="button"
+                onPointerDown={tappable ? tapPet : undefined}
+                disabled={!tappable}
                 aria-hidden
+                tabIndex={-1}
+                className="relative mt-2 touch-manipulation select-none"
+                whileTap={tappable ? { scale: 0.94 } : {}}
               >
-                {reaction.emoji}
-              </motion.span>
-            )}
-          </AnimatePresence>
-        </Meadow>
+                <PetArt
+                  key={action?.id ?? "still"}
+                  species={pet.species}
+                  mood={mood}
+                  mud={mud}
+                  worn={pet.worn}
+                  action={action?.kind ?? null}
+                  animated
+                  className="size-56"
+                />
+              </motion.button>
+            </div>
+
+            <AnimatePresence>
+              {floaters.map((floater) => (
+                <motion.span
+                  key={floater.id}
+                  initial={{ opacity: 1, y: 0, scale: 0.7 }}
+                  animate={{ opacity: 0, y: floater.speech ? -50 : -90, scale: floater.speech ? 1 : 1.6 }}
+                  transition={{ duration: floater.speech ? 1.8 : 1.1, ease: "easeOut" }}
+                  onAnimationComplete={() => setFloaters((current) => current.filter((each) => each.id !== floater.id))}
+                  className={cn(
+                    "pointer-events-none absolute z-20 -translate-x-1/2",
+                    floater.speech
+                      ? "top-6 left-1/2 whitespace-nowrap rounded-2xl bg-card px-3 py-1.5 font-display text-base font-black text-foreground shadow-lg"
+                      : "text-5xl",
+                    !floater.speech && floater.x === undefined && "left-1/2 top-1/3",
+                  )}
+                  style={floater.x !== undefined ? { left: `${floater.x}%`, top: `${(floater.y ?? 40) - 8}%` } : {}}
+                  aria-hidden
+                >
+                  {floater.text}
+                </motion.span>
+              ))}
+            </AnimatePresence>
+          </Scene>
+
+          {game && (
+            <CatchGame
+              species={pet.species}
+              name={pet.name}
+              sound={sound}
+              phase={game}
+              caught={caught}
+              onStart={startGame}
+              onCatch={catchOne}
+              onEnd={endGame}
+              onClose={() => setGame(null)}
+            />
+          )}
+        </div>
 
         <div className="px-5 pb-5 pt-3 text-center">
           {/* The grown-up switch hides behind a long press on the name: findable
@@ -580,46 +723,86 @@ function Stall({ stable, pet }: { stable: Stable; pet: Pet }) {
                 <StatBar key={stat} emoji={emoji} label={t(label)} value={pet[stat]} />
               ))}
             </div>
-            <button
-              type="button"
-              onClick={pat}
-              disabled={!petReady}
-              className={cn(secondaryActionClass, "mt-4 py-2.5 text-base disabled:opacity-60")}
-            >
-              <Hand className="size-5" aria-hidden />
-              {t("petHorse")}
-              {!petReady && (
-                <span className="text-sm font-bold text-muted-foreground">· {t("petAgainIn", { minutes: petMinutes })}</span>
-              )}
-            </button>
+            <div className="mt-4 grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={pat}
+                disabled={!petReady}
+                className={cn(secondaryActionClass, "flex-col gap-0 py-2 text-base disabled:opacity-60")}
+              >
+                <span className="flex items-center gap-1.5">
+                  <Hand className="size-5" aria-hidden />
+                  {t("petHorse")}
+                </span>
+                {!petReady && (
+                  <span className="text-xs font-bold text-muted-foreground">{t("petAgainIn", { minutes: petMinutes })}</span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setGame("ready")}
+                disabled={!playReady || game !== null}
+                className={cn(secondaryActionClass, "flex-col gap-0 py-2 text-base disabled:opacity-60")}
+              >
+                <span className="flex items-center gap-1.5">
+                  <span aria-hidden>🎾</span>
+                  {t("playCatch")}
+                </span>
+                {!playReady && (
+                  <span className="text-xs font-bold text-muted-foreground">{t("petAgainIn", { minutes: playMinutes })}</span>
+                )}
+              </button>
+            </div>
           </section>
 
           <section className="space-y-4 rounded-xl border border-border/70 bg-card/90 p-4 shadow-[0_12px_32px_-18px_oklch(0.4_0.16_295/0.45)] backdrop-blur-md">
-            <div className="flex items-center gap-2">
-              <span className="flex size-8 items-center justify-center rounded-lg bg-linear-to-b from-combo to-[oklch(0.7_0.19_50)] text-combo-foreground">
-                <ShoppingBasket className="size-4" aria-hidden />
-              </span>
-              <h3 className="font-display text-lg font-black">{t("shopTitle")}</h3>
+            <div className="grid grid-cols-2 gap-1 rounded-xl bg-muted/70 p-1" role="tablist">
+              {(
+                [
+                  ["shop", ShoppingBasket, "tabShop"],
+                  ["wardrobe", Shirt, "tabWardrobe"],
+                ] as const
+              ).map(([id, Icon, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === id}
+                  onClick={() => setTab(id)}
+                  className={cn(
+                    "flex items-center justify-center gap-2 rounded-lg py-2 font-display font-black transition-colors focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none",
+                    tab === id ? "bg-card text-foreground shadow" : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <Icon className="size-4" aria-hidden />
+                  {t(label)}
+                </button>
+              ))}
             </div>
-            {KINDS.map(({ kind, label }) => (
-              <div key={kind}>
-                <h4 className="mb-2 text-xs font-black uppercase tracking-widest text-muted-foreground">{t(label)}</h4>
-                <div className="grid grid-cols-3 gap-x-2.5 gap-y-3.5 sm:grid-cols-4">
-                  {items
-                    .filter((item) => item.kind === kind)
-                    .map((item) => (
-                      <ItemButton
-                        key={item.id}
-                        item={item}
-                        hue={KIND_HUE[kind]}
-                        refusal={whyNot(stable, pet.id, item)}
-                        coins={stable.coins}
-                        onUse={() => use(item)}
-                      />
-                    ))}
+
+            {tab === "shop" ? (
+              KINDS.map(({ kind, label }) => (
+                <div key={kind}>
+                  <h4 className="mb-2 text-xs font-black uppercase tracking-widest text-muted-foreground">{t(label)}</h4>
+                  <div className="grid grid-cols-3 gap-x-2.5 gap-y-3.5 sm:grid-cols-4">
+                    {items
+                      .filter((item) => item.kind === kind)
+                      .map((item) => (
+                        <ItemButton
+                          key={item.id}
+                          item={item}
+                          hue={KIND_HUE[kind]}
+                          refusal={whyNot(stable, pet.id, item)}
+                          coins={stable.coins}
+                          onUse={() => use(item)}
+                        />
+                      ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <Wardrobe stable={stable} pet={pet} onTry={onTry} onToggle={wearToggle} />
+            )}
           </section>
         </fieldset>
       ) : (
@@ -697,72 +880,6 @@ function ItemButton({
           </>
         )}
       </span>
-    </motion.button>
-  );
-}
-
-/**
- * The pet itself. Every state it can be in shows on the figure, not only in
- * the bars: a child who cannot read "Clean 20%" yet can see the mud.
- *
- * Drawn species animate themselves in CSS (see PetArt); the rest are still
- * emoji, bobbed from here, with their mood in a badge beside them.
- */
-function PetFigure({ pet, mood, onPet }: { pet: Pet; mood: Mood; onPet: (() => void) | undefined }) {
-  const gone = mood === "gone";
-  const cheerful = mood === "happy" || mood === "ok";
-  const mud = pet.alive ? Math.floor((100 - pet.clean) / 25) : 0;
-
-  if (hasArt(pet.species)) {
-    return (
-      <motion.button
-        type="button"
-        onClick={onPet}
-        disabled={!onPet}
-        aria-hidden
-        tabIndex={-1}
-        className="relative mt-2 select-none"
-        {...(onPet ? { whileTap: { scale: 0.92, rotate: -3 } } : {})}
-      >
-        <PetArt species={pet.species} mood={mood} mud={mud} animated className="size-56" />
-      </motion.button>
-    );
-  }
-
-  return (
-    <motion.button
-      type="button"
-      onClick={onPet}
-      disabled={!onPet}
-      aria-hidden
-      tabIndex={-1}
-      className="relative mt-4 select-none text-[9rem] leading-none"
-      animate={
-        gone
-          ? { y: [0, -10, 0] }
-          : cheerful
-            ? { y: [0, -12, 0], rotate: [0, -3, 0] }
-            : { y: [0, -3, 0] }
-      }
-      transition={{ repeat: Infinity, duration: gone ? 3 : cheerful ? 1.6 : 3 }}
-      {...(onPet ? { whileTap: { scale: 0.92 } } : {})}
-    >
-      {gone && <span className="absolute -top-12 left-1/2 -translate-x-1/2 text-6xl">😇</span>}
-      <span className={cn(gone && "opacity-40 grayscale")}>{SPECIES[pet.species].emoji}</span>
-
-      {/* Mud: one splat per quarter of cleanliness lost. */}
-      {["left-6 top-16", "right-8 top-24", "left-12 bottom-6", "right-4 bottom-10"]
-        .slice(0, mud)
-        .map((place) => (
-          <span key={place} className={cn("absolute size-5 rounded-full bg-amber-800/70", place)} />
-        ))}
-
-      {mood === "sick" && <span className="absolute -right-4 top-2 text-5xl">🤒</span>}
-      {mood === "hungry" && <span className="absolute -right-4 top-2 text-5xl">🍽️</span>}
-      {mood === "sad" && <span className="absolute -right-4 top-2 text-5xl">💧</span>}
-      {mood === "happy" && <span className="absolute -right-4 top-2 text-5xl">✨</span>}
-      {mood === "vacation" && <span className="absolute -right-4 top-2 text-5xl">🏖️</span>}
-      {mood === "asleep" && <span className="absolute -right-4 top-2 text-5xl">💤</span>}
     </motion.button>
   );
 }

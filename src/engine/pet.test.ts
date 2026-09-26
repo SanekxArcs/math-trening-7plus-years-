@@ -1,5 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
+  ACCESSORIES,
+  ACCESSORY_JOY,
+  PLAY_COOLDOWN_MS,
+  PLAY_HAPPY_MAX,
+  accessoriesFor,
+  buyAccessory,
+  canPlay,
+  finishPlay,
+  playJoy,
+  setWish,
+  toggleWear,
+  whyNotDress,
+  wishProgress,
   DAILY_BONUS,
   NEW_STABLE,
   REVIVE_PRICE,
@@ -295,5 +308,122 @@ describe("level rewards", () => {
   it("pays the level step on a won session", () => {
     const win = { won: true, goalEnabled: true, goal: 300, points: 300, level: 2 };
     expect(sessionReward(NEW_STABLE, win, T0)!.coins).toBe(coinsForGoal(300) + LEVEL_COINS);
+  });
+});
+
+describe("the wardrobe", () => {
+  const crown = ACCESSORIES.find((item) => item.id === "crown")!;
+
+  it("is priced for saving up, not for a single win", () => {
+    const cheapest = Math.min(...ACCESSORIES.map((item) => item.price));
+    const dearest = Math.max(...ACCESSORIES.map((item) => item.price));
+    // A level-1 win and the daily bonus make 15, and a day's care for one pet
+    // takes most of that: even the cheapest thing is more than two whole
+    // days' winnings, and the dearest are weeks of savings.
+    expect(cheapest).toBeGreaterThan(2 * 15);
+    expect(dearest).toBeGreaterThanOrEqual(400);
+  });
+
+  it("buys, puts on and cheers up, one pet at a time", () => {
+    const start = stable([{ ...full(), happy: 40 }, full("cat")], crown.price + 5);
+    const after = buyAccessory(start, "horse", "crown", T0);
+    expect(after.coins).toBe(5);
+    const horse = after.pets.find((pet) => pet.id === "horse")!;
+    expect(horse.owned).toEqual(["crown"]);
+    expect(horse.worn.hat).toBe("crown");
+    expect(horse.happy).toBe(40 + ACCESSORY_JOY);
+    // The cat's wardrobe is its own.
+    expect(after.pets.find((pet) => pet.id === "cat")!.owned).toEqual([]);
+  });
+
+  it("never sells the same thing twice, or anything unaffordable", () => {
+    const owned = buyAccessory(stable([full()], 1000), "horse", "crown", T0);
+    expect(whyNotDress(owned, "horse", crown)).toBe("owned");
+    expect(buyAccessory(owned, "horse", "crown", T0).coins).toBe(owned.coins);
+
+    const poor = stable([full()], crown.price - 1);
+    expect(whyNotDress(poor, "horse", crown)).toBe("coins");
+    expect(buyAccessory(poor, "horse", "crown", T0).coins).toBe(crown.price - 1);
+  });
+
+  it("keeps the saddle for the horses", () => {
+    const saddle = ACCESSORIES.find((item) => item.id === "saddle")!;
+    expect(accessoriesFor("cat")).not.toContain(saddle);
+    expect(accessoriesFor("unicorn")).toContain(saddle);
+    expect(whyNotDress(stable([full("cat")], 1000), "cat", saddle)).toBe("notForThisPet");
+  });
+
+  it("does not dress a pet that is gone", () => {
+    const gone = { ...full(), alive: false };
+    expect(whyNotDress(stable([gone], 1000), "horse", crown)).toBe("gone");
+  });
+
+  it("takes things off and puts them back on for free, one per slot", () => {
+    let current = buyAccessory(stable([full()], 1000), "horse", "crown", T0);
+    current = buyAccessory(current, "horse", "bow", T0);
+    const coins = current.coins;
+    expect(current.pets[0]!.worn.hat).toBe("bow");
+
+    current = toggleWear(current, "horse", "crown");
+    expect(current.pets[0]!.worn.hat).toBe("crown");
+    current = toggleWear(current, "horse", "crown");
+    expect(current.pets[0]!.worn.hat).toBeUndefined();
+    expect(current.coins).toBe(coins);
+  });
+
+  it("cannot wear what it does not own", () => {
+    const start = stable([full()], 1000);
+    expect(toggleWear(start, "horse", "crown")).toBe(start);
+  });
+});
+
+describe("the wish list", () => {
+  it("shows how far there is to go, and when it can be bought", () => {
+    const start = setWish(stable([full()], 100), "horse", "crown");
+    expect(wishProgress(start)).toMatchObject({ have: 100, ready: false });
+    expect(wishProgress({ ...start, coins: 450 })).toMatchObject({ have: 400, ready: true });
+  });
+
+  it("is granted by buying it", () => {
+    const start = setWish(stable([full()], 1000), "horse", "crown");
+    expect(buyAccessory(start, "horse", "crown", T0).wish).toBeNull();
+  });
+
+  it("is kept when something else is bought", () => {
+    const start = setWish(stable([full()], 1000), "horse", "crown");
+    expect(buyAccessory(start, "horse", "bow", T0).wish).toEqual({ petId: "horse", itemId: "crown" });
+  });
+
+  it("is not for things already owned, or not wearable", () => {
+    const owned = buyAccessory(stable([full()], 1000), "horse", "crown", T0);
+    expect(setWish(owned, "horse", "crown").wish).toBeNull();
+    expect(setWish(stable([full("cat")]), "cat", "saddle").wish).toBeNull();
+  });
+
+  it("can be cleared", () => {
+    const start = setWish(stable([full()]), "horse", "crown");
+    expect(setWish(start, "horse", null).wish).toBeNull();
+  });
+});
+
+describe("the catching game", () => {
+  it("cheers the pet up by what was caught, up to a cap", () => {
+    expect(playJoy(0)).toBe(0);
+    expect(playJoy(5)).toBe(10);
+    expect(playJoy(100)).toBe(PLAY_HAPPY_MAX);
+    const after = finishPlay(stable([{ ...full(), happy: 30 }]), "horse", 5, T0);
+    expect(after.pets[0]!.happy).toBe(40);
+  });
+
+  it("is there every couple of hours, not all day", () => {
+    const played = finishPlay(stable([{ ...full(), happy: 30 }]), "horse", 5, T0);
+    expect(canPlay(played.pets[0]!, T0 + HOUR)).toBe(false);
+    const again = finishPlay(played, "horse", 5, T0 + HOUR);
+    expect(again.pets[0]!.happy).toBeLessThanOrEqual(played.pets[0]!.happy);
+    expect(canPlay(played.pets[0]!, T0 + PLAY_COOLDOWN_MS)).toBe(true);
+  });
+
+  it("is not for a pet that is gone", () => {
+    expect(canPlay({ ...full(), alive: false }, T0)).toBe(false);
   });
 });

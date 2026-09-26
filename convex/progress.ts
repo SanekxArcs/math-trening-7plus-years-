@@ -15,10 +15,10 @@ export const forDevice = query({
       .withIndex("by_profile", (q) => q.eq("profileId", profileId))
       .unique();
     if (!row) return { status: "ok" as const, progress: null };
-    const { coins, lastBonusDay, pets, activeId, savedAt, level } = row;
+    const { coins, lastBonusDay, pets, activeId, savedAt, level, wish } = row;
     return {
       status: "ok" as const,
-      progress: { coins, lastBonusDay, pets, activeId, savedAt, level },
+      progress: { coins, lastBonusDay, pets, activeId, savedAt, level, wish: wish ?? null },
     };
   },
 });

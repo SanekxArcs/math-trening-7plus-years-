@@ -79,6 +79,34 @@ export const sounds = {
     ]),
 
   tick: () => play([{ freq: 1200, type: "square", duration: 0.04, gain: 0.03 }]),
+
+  // The pets. Short and soft: they are tapped a lot.
+  pat: () =>
+    play([
+      { freq: 660, to: 990, type: "sine", duration: 0.12, gain: 0.05 },
+      { freq: 880, to: 1320, type: "sine", duration: 0.12, gain: 0.04, delay: 0.1 },
+    ]),
+
+  pop: () => play([{ freq: 400, to: 1100, type: "sine", duration: 0.1, gain: 0.07 }]),
+
+  chomp: () =>
+    play([
+      { freq: 220, to: 140, type: "triangle", duration: 0.07, gain: 0.07 },
+      { freq: 220, to: 140, type: "triangle", duration: 0.07, gain: 0.07, delay: 0.16 },
+    ]),
+
+  splash: () =>
+    play([
+      { freq: 900, to: 300, type: "sine", duration: 0.18, gain: 0.05 },
+      { freq: 1200, to: 500, type: "sine", duration: 0.16, gain: 0.04, delay: 0.1 },
+    ]),
+
+  // The till for something saved up for: two bright coins landing.
+  buy: () =>
+    play([
+      { freq: 1318.5, type: "square", duration: 0.08, gain: 0.03 },
+      { freq: 1975.5, type: "square", duration: 0.3, gain: 0.03, delay: 0.08 },
+    ]),
 };
 
 export type SoundName = keyof typeof sounds;

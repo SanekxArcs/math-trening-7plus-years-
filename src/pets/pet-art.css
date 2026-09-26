@@ -1,7 +1,8 @@
 /*
- * Pet animation. Only transform and opacity are animated, and every part pivots
- * on a point given in the drawing's own 0–200 coordinates (`view-box`), so the
- * numbers below can be read straight off PetArt.tsx.
+ * Pet animation. Only transform and opacity are animated. Every part says
+ * where it pivots with an inline `transform-origin` in the drawing's own
+ * 0–200 coordinates (`view-box`), so this file holds the motion and the
+ * drawings hold the geometry — one stylesheet moves every species.
  *
  * Moving parts must not carry an SVG `transform` attribute: the CSS transform
  * replaces it. Anything that needs placing is wrapped in a <g> that does the
@@ -12,33 +13,17 @@
   overflow: visible;
 }
 
-.pet :is(.pet-bob, .pet-body, .pet-tail, .pet-head, .pet-eye, .pet-ear, .pet-shadow, .pet-halo, .pet-tear, .pet-rumble) {
+.pet :is(.pet-bob, .pet-body, .pet-tail, .pet-head, .pet-eye, .pet-ear, .pet-ear-alt, .pet-nose, .pet-paw, .pet-shadow, .pet-halo, .pet-tear, .pet-rumble) {
   transform-box: view-box;
 }
 
-.pet-shadow { transform-origin: 100px 182px; }
-.pet-bob { transform-origin: 100px 176px; }
-
-.pet-body {
-  transform-origin: 100px 150px;
-  animation: pet-breathe 3.2s ease-in-out infinite;
-}
-.pet-tail {
-  transform-origin: 56px 110px;
-  animation: pet-swish 2.6s ease-in-out infinite;
-}
-.pet-head {
-  transform-origin: 150px 74px;
-  animation: pet-look 5s ease-in-out infinite;
-}
-.pet-eye {
-  transform-origin: 162px 50px;
-  animation: pet-blink 4.6s infinite;
-}
-.pet-ear {
-  transform-origin: 158px 37px;
-  animation: pet-twitch 6s infinite;
-}
+.pet-body { animation: pet-breathe 3.2s ease-in-out infinite; }
+.pet-tail { animation: pet-swish 2.6s ease-in-out infinite; }
+.pet-head { animation: pet-look 5s ease-in-out infinite; }
+.pet-eye { animation: pet-blink 4.6s infinite; }
+.pet-ear { animation: pet-twitch 6s infinite; }
+.pet-ear-alt { animation: pet-twitch-alt 7.4s infinite; }
+.pet-nose { animation: pet-wiggle 1.4s ease-in-out infinite; }
 
 /* Happy: hops, nods along, tail going. */
 .mood-happy .pet-bob { animation: pet-hop 1.6s ease-in-out infinite; }
@@ -52,12 +37,23 @@
   animation: none;
   transform: rotate(9deg);
 }
+.pet-cat:is(.mood-sad, .mood-sick) .pet-head,
+.pet-tiger:is(.mood-sad, .mood-sick) .pet-head,
+.pet-dog:is(.mood-sad, .mood-sick) .pet-head,
+.pet-bunny:is(.mood-sad, .mood-sick) .pet-head {
+  /* The front-facing pets hang their heads down, not sideways. */
+  transform: translateY(5px) rotate(-3deg);
+}
 .mood-sad .pet-tail,
 .mood-sick .pet-tail { animation-duration: 5s; }
 .mood-sick .pet-body { animation-duration: 5s; }
 
-/* Hungry: nose down, sniffing the ground for something to eat. */
+/* Hungry: nose down, sniffing about for something to eat. */
 .mood-hungry .pet-head { animation: pet-sniff 2.4s ease-in-out infinite; }
+.pet-cat.mood-hungry .pet-head,
+.pet-tiger.mood-hungry .pet-head,
+.pet-dog.mood-hungry .pet-head,
+.pet-bunny.mood-hungry .pet-head { animation: pet-beg 2.4s ease-in-out infinite; }
 
 .mood-vacation .pet-head { animation: pet-sway 4s ease-in-out infinite; }
 
@@ -66,8 +62,12 @@
   animation: none;
   transform: rotate(12deg);
 }
+.pet-cat.mood-asleep .pet-head,
+.pet-tiger.mood-asleep .pet-head,
+.pet-dog.mood-asleep .pet-head,
+.pet-bunny.mood-asleep .pet-head { transform: translateY(6px) rotate(-6deg); }
 .mood-asleep .pet-body { animation-duration: 4.8s; }
-.mood-asleep :is(.pet-tail, .pet-ear, .pet-eye) { animation: none; }
+.mood-asleep :is(.pet-tail, .pet-ear, .pet-ear-alt, .pet-eye, .pet-nose) { animation: none; }
 
 .pet-z {
   transform-box: fill-box;
@@ -82,7 +82,7 @@
   opacity: 0.55;
 }
 .mood-gone .pet-bob { animation: pet-float 3s ease-in-out infinite; }
-.mood-gone :is(.pet-body, .pet-tail, .pet-head, .pet-ear) { animation: none; }
+.mood-gone :is(.pet-body, .pet-tail, .pet-head, .pet-ear, .pet-ear-alt, .pet-nose) { animation: none; }
 
 .pet-sparkle {
   transform-box: fill-box;
@@ -90,13 +90,22 @@
   animation: pet-twinkle 1.8s ease-in-out infinite;
 }
 .pet-tear { animation: pet-drip 2.2s ease-in infinite; }
-.pet-halo {
-  transform-origin: 156px 16px;
-  animation: pet-halo 2.4s ease-in-out infinite;
-}
-.pet-rumble {
-  transform-origin: 101px 163px;
-  animation: pet-rumble 0.9s ease-in-out infinite;
+.pet-halo { animation: pet-halo 2.4s ease-in-out infinite; }
+.pet-rumble { animation: pet-rumble 0.9s ease-in-out infinite; }
+
+/*
+ * Things done to the pet, played once over whatever the mood is doing. They
+ * come after the moods on purpose: a sleepy horse still chews its carrot.
+ */
+.act-eat .pet-head { animation: pet-chomp 0.28s ease-in-out 5; }
+.act-cheer .pet-bob { animation: pet-cheer 0.7s ease-out 2; }
+.act-cheer .pet-shadow { animation: pet-shadow 0.7s ease-out 2; }
+.act-wash .pet-body { animation: pet-shiver 0.18s ease-in-out 8; }
+.pet-bubble {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+  animation: pet-bubble 1.3s ease-out 2 both;
 }
 
 /* The small avatars, and anyone who asked the device for less motion. */
@@ -138,6 +147,15 @@
   88% { transform: rotate(-14deg); }
   92% { transform: rotate(4deg); }
 }
+@keyframes pet-twitch-alt {
+  0%, 60%, 100% { transform: rotate(0deg); }
+  64% { transform: rotate(12deg); }
+  68% { transform: rotate(-4deg); }
+}
+@keyframes pet-wiggle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-0.8px) scale(1.06); }
+}
 @keyframes pet-hop {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-10px); }
@@ -153,6 +171,11 @@
 @keyframes pet-sniff {
   0%, 100% { transform: rotate(2deg); }
   50% { transform: rotate(14deg); }
+}
+@keyframes pet-beg {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  25% { transform: rotate(-8deg) translateY(-2px); }
+  75% { transform: rotate(8deg) translateY(-2px); }
 }
 @keyframes pet-sway {
   0%, 100% { transform: rotate(-2deg); }
@@ -178,6 +201,26 @@
 @keyframes pet-rumble {
   0%, 100% { transform: translateX(0); opacity: 0.4; }
   50% { transform: translateX(3px); opacity: 1; }
+}
+@keyframes pet-chomp {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  50% { transform: rotate(6deg) translateY(3px); }
+}
+@keyframes pet-cheer {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  15% { transform: translateY(0) scale(1.06, 0.92); }
+  50% { transform: translateY(-22px) scale(0.96, 1.05); }
+  80% { transform: translateY(0) scale(1.04, 0.95); }
+}
+@keyframes pet-shiver {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
+}
+@keyframes pet-bubble {
+  0% { opacity: 0; transform: translateY(0) scale(0.4); }
+  25% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-46px) scale(1.2); }
 }
 
 @keyframes pet-z {

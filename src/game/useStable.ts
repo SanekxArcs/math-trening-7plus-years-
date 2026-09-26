@@ -1,5 +1,17 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { NEW_STABLE, SPECIES, isSpecies, tickAll, type Pet, type Species, type Stable } from "@/engine";
+import {
+  NEW_STABLE,
+  SPECIES,
+  accessoriesFor,
+  findAccessory,
+  isSpecies,
+  tickAll,
+  type Pet,
+  type Species,
+  type Stable,
+  type Wish,
+  type Worn,
+} from "@/engine";
 
 const KEY = "math_master_stable";
 
@@ -8,15 +20,39 @@ function isNum(value: unknown): value is number {
 }
 
 /**
+ * What a pet owns, keeping only accessories that still exist and that it can
+ * wear — a save from a newer version, or a hand-edited one, cannot put a
+ * saddle on the cat.
+ */
+function toOwned(raw: unknown, species: Species): string[] {
+  if (!Array.isArray(raw)) return [];
+  const wearable = new Set(accessoriesFor(species).map((item) => item.id));
+  return [...new Set(raw.filter((id): id is string => typeof id === "string" && wearable.has(id)))];
+}
+
+/** What is worn: only owned things, each in its own slot. */
+function toWorn(raw: unknown, owned: readonly string[]): Worn {
+  if (typeof raw !== "object" || raw === null) return {};
+  const worn: Worn = {};
+  for (const id of Object.values(raw as Record<string, unknown>)) {
+    if (typeof id !== "string" || !owned.includes(id)) continue;
+    const item = findAccessory(id);
+    if (item) worn[item.slot] = id;
+  }
+  return worn;
+}
+
+/**
  * Reads one pet back. The species falls back to a horse because the first
  * version stored a lone `horse` with no species at all.
  */
-function toPet(raw: unknown): Pet | null {
+export function readPet(raw: unknown): Pet | null {
   if (typeof raw !== "object" || raw === null) return null;
   const source = raw as Record<string, unknown>;
   const stats = [source.food, source.clean, source.happy, source.health, source.updatedAt];
   if (!stats.every(isNum)) return null;
   const species: Species = isSpecies(source.species) ? source.species : "horse";
+  const owned = toOwned(source.owned, species);
   return {
     id: species,
     species,
@@ -30,7 +66,19 @@ function toPet(raw: unknown): Pet | null {
     diedAt: isNum(source.diedAt) ? source.diedAt : null,
     vacation: source.vacation === true,
     lastPettedAt: isNum(source.lastPettedAt) ? source.lastPettedAt : 0,
+    lastPlayedAt: isNum(source.lastPlayedAt) ? source.lastPlayedAt : 0,
+    owned,
+    worn: toWorn(source.worn, owned),
   };
+}
+
+function toWish(raw: unknown, pets: readonly Pet[]): Wish | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const { petId, itemId } = raw as Record<string, unknown>;
+  if (!isSpecies(petId) || typeof itemId !== "string") return null;
+  const pet = pets.find((each) => each.id === petId);
+  if (!pet || pet.owned.includes(itemId) || !toOwned([itemId], pet.species).length) return null;
+  return { petId, itemId };
 }
 
 /** One of each kind, whatever a damaged save says. */
@@ -38,7 +86,7 @@ function toPets(raw: unknown): Pet[] {
   const list = Array.isArray(raw) ? raw : [];
   const pets: Pet[] = [];
   for (const entry of list) {
-    const pet = toPet(entry);
+    const pet = readPet(entry);
     if (pet && !pets.some((each) => each.id === pet.id)) pets.push(pet);
   }
   return pets;
@@ -63,6 +111,7 @@ export function parseStable(raw: string | null): Stable {
       activeId,
       savedAt: isNum(source.savedAt) ? source.savedAt : 0,
       asleepSince: isNum(source.asleepSince) ? source.asleepSince : null,
+      wish: toWish(source.wish, pets),
     };
   } catch {
     return NEW_STABLE;
@@ -149,9 +198,14 @@ export function touchStable(): void {
   write({ ...current, savedAt: Math.max(Date.now(), current.savedAt + 1) });
 }
 
-/** Swaps in a copy from the backup, keeping its stamp so it is not sent back. */
-export function restoreStable(stable: Stable): void {
-  write(stable);
+/**
+ * Swaps in a copy from the backup, keeping its stamp so it is not sent back.
+ * Read back through the same checks as the device's own save: a backup from
+ * before the wardrobe existed has pets with nothing owned, not pets with
+ * nothing at all.
+ */
+export function restoreStable(backup: object): void {
+  write(parseStable(JSON.stringify(backup)));
 }
 
 export function readStable(): Stable {

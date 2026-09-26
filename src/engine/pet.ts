@@ -14,6 +14,13 @@
  * alone, a pet is hungry after a day and a half, sick after two, and gone
  * after three and a half to four: a weekend away hurts, a week away does not
  * survive without the grown-ups' vacation switch.
+ *
+ * Above the care sits the wardrobe: hats, collars, glasses, capes and whole new
+ * homes, bought one pet at a time and priced in days and weeks of saving, not
+ * minutes. They change nothing about the needs — care always comes first — so
+ * they are what the savings are for, and the wish list keeps the next one in
+ * sight. Two free things keep the pets lively between purchases: a cuddle an
+ * hour, and a short catching game every couple of hours.
  */
 
 const HOUR = 60 * 60 * 1000;
@@ -24,7 +31,7 @@ export type Need = "food" | "clean" | "happy";
 /** Everything with a bar. Health only falls when a need is neglected. */
 export type Stat = Need | "health";
 
-export type Species = "horse" | "cat" | "dog" | "bunny" | "unicorn";
+export type Species = "horse" | "cat" | "dog" | "bunny" | "unicorn" | "tiger";
 
 export interface SpeciesInfo {
   emoji: string;
@@ -71,9 +78,17 @@ export const SPECIES: Record<Species, SpeciesInfo> = {
     decay: { food: 35, clean: 30, happy: 35 },
     menu: ["hay", "carrot", "apple", "cupcake", "sweet"],
   },
+  // The goofy blue tiger from the demon-hunter idols' world: the dearest pet,
+  // always hungry for ramyeon and always up for a game.
+  tiger: {
+    emoji: "🐯",
+    price: 300,
+    decay: { food: 55, clean: 30, happy: 45 },
+    menu: ["kibble", "milk", "sausage", "ramyeon", "yarn"],
+  },
 };
 
-export const SPECIES_ORDER: readonly Species[] = ["horse", "cat", "dog", "bunny", "unicorn"];
+export const SPECIES_ORDER: readonly Species[] = ["horse", "cat", "dog", "bunny", "unicorn", "tiger"];
 
 export function isSpecies(value: unknown): value is Species {
   return typeof value === "string" && value in SPECIES;
@@ -111,6 +126,83 @@ export const REVIVE_LEVEL = 50;
 export const PET_COOLDOWN_MS = HOUR;
 export const PET_HAPPY = 5;
 
+/** The catching game: free, short, and not on tap all day. */
+export const PLAY_COOLDOWN_MS = 2 * HOUR;
+export const PLAY_ROUND_MS = 20_000;
+export const PLAY_HAPPY_PER_CATCH = 2;
+export const PLAY_HAPPY_MAX = 30;
+
+/** A new thing to wear is exciting, whatever the pet's day was like. */
+export const ACCESSORY_JOY = 40;
+
+/** Where an accessory goes. "home" is the scene the pet stands in. */
+export type Slot = "hat" | "neck" | "face" | "back" | "home";
+export const SLOTS: readonly Slot[] = ["hat", "neck", "face", "back", "home"];
+
+/** One of each slot at a time; ids from ACCESSORIES. */
+export type Worn = Partial<Record<Slot, string>>;
+
+export interface Accessory {
+  id: string;
+  slot: Slot;
+  price: number;
+  /** Left out for things every pet can wear. */
+  only?: readonly Species[];
+  /** A themed set, gathered on a tab of its own in the wardrobe. */
+  collection?: Collection;
+}
+
+/** The K-pop demon hunters' things: idol gear, hunter gear, their world. */
+export type Collection = "kpop";
+
+/**
+ * The wardrobe, cheapest first within each slot. The cheapest is two or three
+ * days of saving next to a pet's care; the dearest are weeks — a crown or a
+ * trip to space is meant to be worked towards and remembered, and every pet
+ * has its own wardrobe, so a second pet means a second collection.
+ */
+export const ACCESSORIES: readonly Accessory[] = [
+  { id: "bow", slot: "hat", price: 40 },
+  { id: "partyHat", slot: "hat", price: 60 },
+  { id: "flowerCrown", slot: "hat", price: 90 },
+  { id: "cowboyHat", slot: "hat", price: 140 },
+  { id: "wizardHat", slot: "hat", price: 220 },
+  { id: "crown", slot: "hat", price: 400 },
+  { id: "micHeadset", slot: "hat", price: 120, collection: "kpop" },
+  { id: "gat", slot: "hat", price: 180, collection: "kpop" },
+  { id: "magpie", slot: "hat", price: 260, collection: "kpop" },
+  { id: "bandana", slot: "neck", price: 45 },
+  { id: "bell", slot: "neck", price: 70 },
+  { id: "bowTie", slot: "neck", price: 100 },
+  { id: "pearls", slot: "neck", price: 160 },
+  { id: "medal", slot: "neck", price: 260 },
+  { id: "goldenNecklace", slot: "neck", price: 220, collection: "kpop" },
+  { id: "roundGlasses", slot: "face", price: 80 },
+  { id: "sunglasses", slot: "face", price: 120 },
+  { id: "heartGlasses", slot: "face", price: 180 },
+  { id: "starShades", slot: "face", price: 150, collection: "kpop" },
+  { id: "saddle", slot: "back", price: 150, only: ["horse", "unicorn"] },
+  { id: "cape", slot: "back", price: 200 },
+  { id: "wings", slot: "back", price: 320 },
+  { id: "hunterSword", slot: "back", price: 350, collection: "kpop" },
+  { id: "beach", slot: "home", price: 150 },
+  { id: "snow", slot: "home", price: 200 },
+  { id: "candy", slot: "home", price: 280 },
+  { id: "castle", slot: "home", price: 380 },
+  { id: "space", slot: "home", price: 500 },
+  { id: "seoul", slot: "home", price: 400, collection: "kpop" },
+  { id: "stage", slot: "home", price: 450, collection: "kpop" },
+];
+
+export function findAccessory(id: string): Accessory | undefined {
+  return ACCESSORIES.find((item) => item.id === id);
+}
+
+/** What this pet can wear, in wardrobe order. */
+export function accessoriesFor(species: Species): Accessory[] {
+  return ACCESSORIES.filter((item) => !item.only || item.only.includes(species));
+}
+
 export interface Pet {
   /** The species doubles as the id: one of each kind. */
   id: Species;
@@ -127,6 +219,17 @@ export interface Pet {
   /** Everything frozen: set by a grown-up for holidays and sick days. */
   vacation: boolean;
   lastPettedAt: number;
+  /** Epoch ms of the last catching game, 0 for never. */
+  lastPlayedAt: number;
+  /** Accessory ids bought for this pet. Kept forever, worn or not. */
+  owned: string[];
+  worn: Worn;
+}
+
+/** The one thing being saved up for, shown with how far there is to go. */
+export interface Wish {
+  petId: Species;
+  itemId: string;
 }
 
 export interface Stable {
@@ -147,6 +250,7 @@ export interface Stable {
    * while they are up. Cleared by the next answer given.
    */
   asleepSince: number | null;
+  wish: Wish | null;
 }
 
 export const NEW_STABLE: Stable = {
@@ -156,6 +260,7 @@ export const NEW_STABLE: Stable = {
   activeId: null,
   savedAt: 0,
   asleepSince: null,
+  wish: null,
 };
 
 export type ItemKind = "food" | "play" | "care" | "vet";
@@ -187,6 +292,7 @@ export const SHOP: readonly ShopItem[] = [
   { id: "meat", emoji: "🍖", kind: "food", price: 5, effect: { food: 45 } },
   { id: "lettuce", emoji: "🥬", kind: "food", price: 5, effect: { food: 45 } },
   { id: "cupcake", emoji: "🧁", kind: "food", price: 5, effect: { food: 45 } },
+  { id: "ramyeon", emoji: "🍜", kind: "food", price: 5, effect: { food: 45 } },
   { id: "sweet", emoji: "🍬", kind: "play", price: 4, effect: { happy: 25 } },
   { id: "yarn", emoji: "🧶", kind: "play", price: 4, effect: { happy: 25 } },
   { id: "ball", emoji: "🎾", kind: "play", price: 4, effect: { happy: 25 } },
@@ -226,6 +332,9 @@ export function newPet(species: Species, name: string, now: number): Pet {
     diedAt: null,
     vacation: false,
     lastPettedAt: 0,
+    lastPlayedAt: 0,
+    owned: [],
+    worn: {},
   };
 }
 
@@ -337,6 +446,98 @@ export function cuddle(stable: Stable, petId: Species, now: number): Stable {
   const pet = tick(found, now);
   if (!canPet(pet, now)) return withPet(stable, pet);
   return withPet(stable, { ...pet, happy: clamp(pet.happy + PET_HAPPY), lastPettedAt: now });
+}
+
+export function canPlay(pet: Pet, now: number): boolean {
+  return pet.alive && now - pet.lastPlayedAt >= PLAY_COOLDOWN_MS;
+}
+
+/** What a round of the catching game is worth, capped so it never replaces care. */
+export function playJoy(caught: number): number {
+  return Math.min(PLAY_HAPPY_MAX, Math.max(0, Math.floor(caught)) * PLAY_HAPPY_PER_CATCH);
+}
+
+/**
+ * A round of the catching game played. The cooldown starts when it is paid,
+ * not when it begins, so a round cut short by leaving the screen costs
+ * nothing and pays nothing.
+ */
+export function finishPlay(stable: Stable, petId: Species, caught: number, now: number): Stable {
+  const found = findPet(stable, petId);
+  if (!found) return stable;
+  const pet = tick(found, now);
+  if (!canPlay(pet, now)) return withPet(stable, pet);
+  return withPet(stable, { ...pet, happy: clamp(pet.happy + playJoy(caught)), lastPlayedAt: now });
+}
+
+export type DressRefusal = "noPet" | "gone" | "notForThisPet" | "owned" | "coins";
+
+/** Why this pet cannot have this accessory bought for it, or null if it can. */
+export function whyNotDress(stable: Stable, petId: Species, item: Accessory): DressRefusal | null {
+  const pet = findPet(stable, petId);
+  if (!pet) return "noPet";
+  if (!pet.alive) return "gone";
+  if (!accessoriesFor(pet.species).includes(item)) return "notForThisPet";
+  if (pet.owned.includes(item.id)) return "owned";
+  if (stable.coins < item.price) return "coins";
+  return null;
+}
+
+/** Bought, put on at once — nobody saves for a crown to keep it in a drawer. */
+export function buyAccessory(stable: Stable, petId: Species, itemId: string, now: number): Stable {
+  const item = findAccessory(itemId);
+  const found = findPet(stable, petId);
+  if (!item || !found) return stable;
+  const ticked = tick(found, now);
+  const current = withPet(stable, ticked);
+  if (whyNotDress(current, petId, item) !== null) return current;
+
+  const pet: Pet = {
+    ...ticked,
+    owned: [...ticked.owned, item.id],
+    worn: { ...ticked.worn, [item.slot]: item.id },
+    happy: clamp(ticked.happy + ACCESSORY_JOY),
+  };
+  const fulfilled = current.wish?.petId === petId && current.wish.itemId === itemId;
+  return {
+    ...withPet(current, pet),
+    coins: current.coins - item.price,
+    wish: fulfilled ? null : current.wish,
+  };
+}
+
+/** Puts an owned accessory on, or takes it off if it is already on. Free, as often as liked. */
+export function toggleWear(stable: Stable, petId: Species, itemId: string): Stable {
+  const item = findAccessory(itemId);
+  const pet = findPet(stable, petId);
+  if (!item || !pet || !pet.alive || !pet.owned.includes(itemId)) return stable;
+  const worn = { ...pet.worn };
+  if (worn[item.slot] === itemId) delete worn[item.slot];
+  else worn[item.slot] = itemId;
+  return withPet(stable, { ...pet, worn });
+}
+
+/** Picks the thing to save for, or clears it with null. Owned things are not wished for. */
+export function setWish(stable: Stable, petId: Species, itemId: string | null): Stable {
+  if (itemId === null) return stable.wish === null ? stable : { ...stable, wish: null };
+  const item = findAccessory(itemId);
+  const pet = findPet(stable, petId);
+  if (!item || !pet || pet.owned.includes(itemId) || !accessoriesFor(pet.species).includes(item)) {
+    return stable;
+  }
+  if (stable.wish?.petId === petId && stable.wish.itemId === itemId) return stable;
+  return { ...stable, wish: { petId, itemId } };
+}
+
+/** The wish as something to draw, or null if there is none worth showing. */
+export function wishProgress(stable: Stable): { pet: Pet; item: Accessory; have: number; ready: boolean } | null {
+  const wish = stable.wish;
+  if (!wish) return null;
+  const pet = findPet(stable, wish.petId);
+  const item = findAccessory(wish.itemId);
+  if (!pet || !item || pet.owned.includes(item.id)) return null;
+  const have = Math.min(stable.coins, item.price);
+  return { pet, item, have, ready: stable.coins >= item.price };
 }
 
 export function revive(stable: Stable, petId: Species, now: number): Stable {

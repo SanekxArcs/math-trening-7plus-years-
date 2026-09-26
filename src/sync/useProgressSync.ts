@@ -16,9 +16,11 @@ const RETRY_MS = 30_000;
 function toPet(pet: Pet): Pet {
   const {
     id, species, name, food, clean, happy, health, alive, updatedAt, diedAt, vacation, lastPettedAt,
+    lastPlayedAt, owned, worn,
   } = pet;
   return {
     id, species, name, food, clean, happy, health, alive, updatedAt, diedAt, vacation, lastPettedAt,
+    lastPlayedAt, owned, worn: { ...worn },
   };
 }
 
@@ -29,6 +31,7 @@ export function toBackup(stable: Stable, level: number) {
     pets: stable.pets.map(toPet),
     activeId: stable.activeId,
     savedAt: stable.savedAt,
+    wish: stable.wish ? { petId: stable.wish.petId, itemId: stable.wish.itemId } : null,
     level,
   };
 }

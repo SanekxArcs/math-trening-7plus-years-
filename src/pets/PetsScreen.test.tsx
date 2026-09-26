@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -119,6 +119,106 @@ describe("PetsScreen", () => {
     expect(screen.getByRole("button", { name: /Hay/ })).toBeInTheDocument();
   });
 
+  it("dresses the pet up: try it on, buy it, and it is on", async () => {
+    const user = userEvent.setup();
+    seed([newPet("horse", "Bella", Date.now())], 450);
+    renderPets();
+
+    await user.click(screen.getByRole("tab", { name: /Dress up/ }));
+    await user.click(screen.getByRole("tab", { name: /Hats/ }));
+    await user.click(screen.getByRole("button", { name: "Golden crown, 400 coins" }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("This is how Bella would look!")).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: /Buy · 🪙 400/ }));
+
+    await waitFor(() => expect(saved().coins).toBe(50));
+    expect(saved().pets[0]).toMatchObject({ owned: ["crown"], worn: { hat: "crown" } });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    // Owned now: a tap takes it off, and another puts it back, for nothing.
+    await user.click(screen.getByRole("button", { name: "Golden crown, Take off" }));
+    await waitFor(() => expect(saved().pets[0]!.worn.hat).toBeUndefined());
+    expect(saved().coins).toBe(50);
+  });
+
+  it("opens the wardrobe on the K-pop shelf, with idol and hunter gear from every slot", async () => {
+    const user = userEvent.setup();
+    seed([newPet("dog", "Buddy", Date.now())], 500);
+    renderPets();
+
+    await user.click(screen.getByRole("tab", { name: /Dress up/ }));
+    expect(screen.getByRole("tab", { name: /K-pop/ })).toHaveAttribute("aria-selected", "true");
+    for (const name of ["Idol headset", "Gat hat", "Magpie friend", "Golden necklace", "Star shades", "Hunter's sword", "Concert stage"]) {
+      expect(screen.getByRole("button", { name: new RegExp(name) })).toBeInTheDocument();
+    }
+    expect(screen.queryByRole("button", { name: /Golden crown/ })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: /Concert stage/ }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: /Buy · 🪙 450/ }));
+    await waitFor(() => expect(saved().pets[0]!.worn.home).toBe("stage"));
+  });
+
+  it("saves up for what is too dear, and shows how far there is to go", async () => {
+    const user = userEvent.setup();
+    seed([newPet("horse", "Bella", Date.now())], 120);
+    renderPets();
+
+    await user.click(screen.getByRole("tab", { name: /Dress up/ }));
+    await user.click(screen.getByRole("tab", { name: /Hats/ }));
+    await user.click(screen.getByRole("button", { name: "Golden crown, 400 coins" }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).queryByRole("button", { name: /Buy/ })).toBeNull();
+    expect(within(dialog).getByText(/280 more coins to go/)).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: "Save up for this" }));
+
+    await waitFor(() => expect(saved().wish).toEqual({ petId: "horse", itemId: "crown" }));
+    expect(screen.getByText("Saving for: Golden crown")).toBeInTheDocument();
+    expect(saved().coins).toBe(120);
+  });
+
+  it("plays catch: the pet gets happier for what was caught, and then rests", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      seed([{ ...newPet("horse", "Bella", Date.now()), happy: 20 }], 10);
+      renderPets();
+
+      await user.click(screen.getByRole("button", { name: /Play catch/ }));
+      await user.click(screen.getByRole("button", { name: "Go!" }));
+      await vi.advanceTimersByTimeAsync(700);
+      const treat = screen.getAllByRole("button").find((button) => button.closest(".absolute.inset-0.z-30") && button.textContent);
+      expect(treat).toBeDefined();
+      await user.pointer({ keys: "[MouseLeft>]", target: treat! });
+
+      await vi.advanceTimersByTimeAsync(21_000);
+      expect(await screen.findByRole("button", { name: "Done" })).toBeInTheDocument();
+      expect(saved().pets[0]!.happy).toBeGreaterThan(20);
+      expect(saved().pets[0]!.lastPlayedAt).toBeGreaterThan(0);
+
+      await user.click(screen.getByRole("button", { name: "Done" }));
+      expect(screen.getByRole("button", { name: /Play catch/ })).toBeDisabled();
+    } finally {
+      vi.useRealTimers();
+    }
+  }, 30_000);
+
+  it("adopts the blue tiger, who loves ramyeon", async () => {
+    const user = userEvent.setup();
+    seed([newPet("horse", "Bella", Date.now())], SPECIES.tiger.price);
+    renderPets();
+
+    await user.click(screen.getByRole("button", { name: /New pet/ }));
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: /Blue tiger/ }));
+    await user.click(within(dialog).getByRole("button", { name: /Adopt · 🪙 300/ }));
+
+    expect(await screen.findByRole("heading", { name: "Derpy" })).toBeInTheDocument();
+    expect(saved().coins).toBe(0);
+    expect(screen.getByRole("button", { name: /Ramyeon/ })).toBeInTheDocument();
+  });
+
   it("offers a way back once a pet is gone, for enough coins", async () => {
     const user = userEvent.setup();
     const gone = { ...newPet("horse", "Bella", Date.now()), alive: false, diedAt: Date.now(), health: 0 };
@@ -148,6 +248,38 @@ describe("parseStable", () => {
     expect(stable.activeId).toBe("horse");
     expect(stable.pets).toHaveLength(1);
     expect(stable.pets[0]).toMatchObject({ id: "horse", species: "horse", name: "Bella", food: 60 });
+  });
+
+  it("gives pets from before the wardrobe an empty one", () => {
+    const old = { coins: 5, pets: [{ species: "cat", name: "Rudy", food: 60, clean: 50, happy: 40, health: 90, updatedAt: 1 }] };
+    const stable = parseStable(JSON.stringify(old));
+    expect(stable.pets[0]).toMatchObject({ owned: [], worn: {}, lastPlayedAt: 0 });
+    expect(stable.wish).toBeNull();
+  });
+
+  it("drops accessories that do not exist, do not fit, or are not owned", () => {
+    const raw = {
+      coins: 5,
+      pets: [
+        {
+          species: "cat",
+          name: "Rudy",
+          food: 60,
+          clean: 50,
+          happy: 40,
+          health: 90,
+          updatedAt: 1,
+          owned: ["crown", "saddle", "jetpack", "crown"],
+          worn: { hat: "crown", back: "saddle", face: "sunglasses" },
+        },
+      ],
+      wish: { petId: "cat", itemId: "crown" },
+    };
+    const stable = parseStable(JSON.stringify(raw));
+    expect(stable.pets[0]!.owned).toEqual(["crown"]);
+    expect(stable.pets[0]!.worn).toEqual({ hat: "crown" });
+    // Already owned, so not something to wish for any more.
+    expect(stable.wish).toBeNull();
   });
 
   it("keeps the coins when the pets cannot be read", () => {

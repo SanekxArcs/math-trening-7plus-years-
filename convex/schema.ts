@@ -61,9 +61,23 @@ const species = v.union(
   v.literal("dog"),
   v.literal("bunny"),
   v.literal("unicorn"),
+  v.literal("tiger"),
 );
 
-/** A pet exactly as the device's engine holds it; see src/engine/pet.ts. */
+/** One accessory id per slot; see ACCESSORIES in src/engine/pet.ts. */
+const worn = v.object({
+  hat: v.optional(v.string()),
+  neck: v.optional(v.string()),
+  face: v.optional(v.string()),
+  back: v.optional(v.string()),
+  home: v.optional(v.string()),
+});
+
+/**
+ * A pet exactly as the device's engine holds it; see src/engine/pet.ts. The
+ * wardrobe and the catching game came later, so rows backed up before them
+ * leave those fields out and the device fills them in on restore.
+ */
 export const petFields = v.object({
   id: species,
   species,
@@ -77,6 +91,9 @@ export const petFields = v.object({
   diedAt: v.union(v.number(), v.null()),
   vacation: v.boolean(),
   lastPettedAt: v.number(),
+  lastPlayedAt: v.optional(v.number()),
+  owned: v.optional(v.array(v.string())),
+  worn: v.optional(worn),
 });
 
 export const progressFields = {
@@ -86,6 +103,8 @@ export const progressFields = {
   activeId: v.union(species, v.null()),
   /** Device clock of the change this snapshot came from. Newest wins. */
   savedAt: v.number(),
+  /** What the child is saving up for. Optional for rows from before wishes. */
+  wish: v.optional(v.union(v.object({ petId: species, itemId: v.string() }), v.null())),
   level: v.number(),
 };
 
