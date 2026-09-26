@@ -20,7 +20,9 @@ export function useCountUp(target: number, durationMs = 650, from?: number): num
 
   useLayoutEffect(() => {
     const origin = current.current;
-    if (reduce || target <= origin) {
+    // From below zero it snaps too: that is a restart after a lost game, and
+    // counting up through the old debt would replay the loss.
+    if (reduce || target <= origin || origin < 0) {
       current.current = target;
       setShown(target);
       return;

@@ -57,7 +57,7 @@ export function PairCodeCard({ pairCode, name, onDone }: PairCodeCardProps) {
               initial={{ opacity: 0, y: -20, rotateX: 90 }}
               animate={{ opacity: 1, y: 0, rotateX: 0 }}
               transition={{ type: "spring", stiffness: 380, damping: 18, delay: 0.3 + index * 0.08 }}
-              className="answer-tile flex h-14 w-11 items-center justify-center font-display text-3xl font-black sm:h-16 sm:w-12"
+              className="answer-tile flex h-13 w-10 items-center justify-center font-display text-3xl font-black sm:h-16 sm:w-12"
               style={{ "--tile": `var(--option-${index % 6})`, transformPerspective: 400 } as MotionStyle}
             >
               <span className="relative">{char}</span>

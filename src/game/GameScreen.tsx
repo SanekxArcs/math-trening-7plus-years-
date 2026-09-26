@@ -132,8 +132,16 @@ export function GameScreen({
     }
   }, [state.questionId, outcome, settings.soundEnabled]);
 
+  // The fanfare is for the moment of winning. A won board restored on a
+  // reload, or on coming back from the pets, is already celebrated.
+  const celebrated = useRef(state.won);
   useEffect(() => {
-    if (!state.won) return;
+    if (!state.won) {
+      celebrated.current = false;
+      return;
+    }
+    if (celebrated.current) return;
+    celebrated.current = true;
     playSound("win", settings.soundEnabled);
     celebrateWin();
   }, [state.won, settings.soundEnabled]);
@@ -226,13 +234,18 @@ export function GameScreen({
    */
   const asleep = isAsleep(stable);
   const [wokeUp, setWokeUp] = useState<string | null>(null);
+  // Keyed on each new answer rather than on the board: the answer that ended
+  // the day is already "seen" when bedtime comes, so it never wakes the pets
+  // it just put to bed — while a first answer that wins or loses the game
+  // straight away still wakes them, and still gets its own dialog.
+  const seenOutcome = useRef(outcome);
   useEffect(() => {
-    // Not on a finished board: the answer that ended the day is still on it,
-    // and must not wake the pets that the same finish just put to bed.
-    if (!outcome || !asleep || state.phase === "finished") return;
+    if (!outcome || outcome === seenOutcome.current) return;
+    seenOutcome.current = outcome;
+    if (!asleep) return;
     updateStable(wakeUp);
     setWokeUp(shown?.name ?? null);
-  }, [state.questionId, state.phase, outcome, asleep, shown?.name]);
+  }, [outcome, asleep, shown?.name]);
   useEffect(() => {
     if (wokeUp === null) return;
     const id = window.setTimeout(() => setWokeUp(null), 2800);

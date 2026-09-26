@@ -13,12 +13,13 @@ import { PairLanding } from "@/pair/PairLanding";
  * service worker's precache, which downloads it to the device whether it is
  * ever used or not.
  */
-const AdminRoute = lazy(() =>
-  import("@/admin/AdminRoute").then((module) => ({ default: module.AdminRoute })),
-);
-
 const ParentRoute = lazy(() =>
   import("@/parent/ParentRoute").then((module) => ({ default: module.ParentRoute })),
+);
+
+/** The owner's page, on demand for the same reason: no tablet ever opens it. */
+const AdminRoute = lazy(() =>
+  import("@/admin/AdminRoute").then((module) => ({ default: module.AdminRoute })),
 );
 
 export default function App() {

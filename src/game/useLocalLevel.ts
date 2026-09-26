@@ -56,6 +56,11 @@ export function raiseLevel(level: number): void {
   write(level);
 }
 
+/** The level as the game sees it, including the in-memory copy private mode falls back to. */
+export function currentLevel(): number {
+  return getSnapshot();
+}
+
 /** Sets the level outright, up or down — for a backup newer than this device. */
 export function setLevel(level: number): void {
   const next = Math.max(1, Math.floor(level));
@@ -65,7 +70,13 @@ export function setLevel(level: number): void {
 
 export function useLocalLevel() {
   const level = useSyncExternalStore(subscribe, getSnapshot, () => 1);
-  const advance = useCallback(() => raiseLevel(getSnapshot() + 1), []);
+  // Stamped like the reset: the level travels inside the stable's backup, and
+  // only a strictly newer stamp wins. An unstamped level-up was sent with the
+  // old stamp, so it could be overwritten or ping-pong between two devices.
+  const advance = useCallback(() => {
+    raiseLevel(getSnapshot() + 1);
+    touchStable();
+  }, []);
   /**
    * Back to level 1 after a lost game. The stable is stamped too, because the
    * level travels inside its backup: without a newer stamp the backup would

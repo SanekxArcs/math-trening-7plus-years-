@@ -1,5 +1,5 @@
 import type { GameSettings } from "./types.ts";
-import type { ScoreState } from "./scoring.ts";
+import { penaltyFor, type ScoreState } from "./scoring.ts";
 
 /** Each level asks for half again as many points as the one before. */
 const GROWTH = 1.5;
@@ -53,7 +53,9 @@ export const LOSS_SHARE = 0.25;
  * played to, so a bigger level can absorb a proportionally bigger bad run.
  */
 export function lossLimit(goal: number): number {
-  return Math.max(1, Math.ceil(goal * LOSS_SHARE));
+  // Never so small that a single first mistake loses the game: on a goal of
+  // 40 or less a quarter is no more than the first penalty itself.
+  return Math.max(penaltyFor(1) + 1, Math.ceil(goal * LOSS_SHARE));
 }
 
 /**

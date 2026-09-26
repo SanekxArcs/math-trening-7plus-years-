@@ -54,6 +54,12 @@ describe("losing", () => {
     expect(isGameLost(score(-120), settings)).toBe(true);
   });
 
+  it("never loses the game on a single first mistake, however small the goal", () => {
+    // A quarter of 20 is 5, less than the first penalty of 10.
+    expect(lossLimit(20)).toBe(11);
+    expect(isGameLost(score(-10), { ...settings, goalTarget: 20 })).toBe(false);
+  });
+
   it("cannot be lost without a goal", () => {
     expect(isGameLost(score(-9999), { ...settings, goalEnabled: false })).toBe(false);
   });

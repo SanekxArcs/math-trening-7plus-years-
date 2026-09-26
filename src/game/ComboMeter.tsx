@@ -89,7 +89,7 @@ export function ComboMeter({ score }: ComboMeterProps) {
                 ×{multiplier}
               </motion.span>
               {score.goodStreak > 0 && (
-                <span className="whitespace-nowrap text-xs font-bold tabular-nums opacity-75">
+                <span className="hidden whitespace-nowrap text-xs font-bold tabular-nums opacity-75 min-[400px]:inline">
                   {t("inARow", { count: score.goodStreak })}
                 </span>
               )}

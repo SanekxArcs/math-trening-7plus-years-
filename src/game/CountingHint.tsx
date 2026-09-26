@@ -229,7 +229,7 @@ export function CountingHint({ op, a, b }: CountingHintProps) {
           <button
             type="button"
             onClick={() => (counting ? stop() : setStep(0))}
-            className="flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-black uppercase tracking-widest text-primary-foreground shadow-sm focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
+            className="flex items-center gap-2 rounded-full border-b-4 border-black/20 bg-linear-to-b from-primary to-primary/80 px-4 py-2 text-xs font-black uppercase tracking-widest text-primary-foreground shadow-sm transition-[translate,border-width] active:translate-y-0.5 active:border-b-2 focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
           >
             {counting ? (
               <Square className="size-3.5" aria-hidden />

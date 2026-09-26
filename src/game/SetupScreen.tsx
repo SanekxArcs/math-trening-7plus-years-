@@ -139,7 +139,13 @@ export function SetupScreen({ onCreate, onRestore }: SetupScreenProps) {
                   data-tone={picked ? "solid" : undefined}
                   initial={{ opacity: 0, y: 14, scale: 0.7 }}
                   animate={{ opacity: 1, y: 0, scale: picked ? 1.06 : 1 }}
-                  transition={{ type: "spring", stiffness: 420, damping: 20, delay: 0.25 + index * 0.04 }}
+                  transition={{
+                    type: "spring",
+                    stiffness: 420,
+                    damping: 20,
+                    delay: 0.25 + index * 0.04,
+                    scale: { type: "spring", stiffness: 420, damping: 20 },
+                  }}
                   whileTap={{ scale: 0.92 }}
                   className="answer-tile flex aspect-square items-center justify-center text-3xl"
                   style={{ "--tile": `var(--option-${index % 6})` } as MotionStyle}

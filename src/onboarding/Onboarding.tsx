@@ -122,14 +122,17 @@ export function buildSteps(settings: GameSettings): Step[] {
 export function Onboarding({ settings, onDone }: { settings: GameSettings; onDone: () => void }) {
   const { t } = useI18n();
   const steps = buildSteps(settings);
-  const [[index, direction], setPage] = useState<[number, number]>([0, 0]);
+  const [[page, direction], setPage] = useState<[number, number]>([0, 0]);
+  // Settings can arrive from the server while the tour is open and drop
+  // slides (no timer, no goal): stay on the last one rather than past the end.
+  const index = Math.min(page, steps.length - 1);
   const step = steps[index] as Step;
   const last = index === steps.length - 1;
 
   const go = useCallback(
     (by: number) => {
       setPage(([current]) => {
-        const next = Math.max(0, Math.min(steps.length - 1, current + by));
+        const next = Math.max(0, Math.min(steps.length - 1, Math.min(current, steps.length - 1) + by));
         return [next, by];
       });
     },
@@ -161,12 +164,12 @@ export function Onboarding({ settings, onDone }: { settings: GameSettings; onDon
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.95, y: 20, opacity: 0 }}
         transition={{ type: "spring", stiffness: 280, damping: 24 }}
-        className="relative my-auto w-full max-w-md overflow-hidden rounded-xl border border-border/70 bg-card shadow-2xl"
+        className="relative my-auto w-full max-w-md overflow-hidden rounded-xl border border-border/70 bg-card/95 shadow-2xl backdrop-blur-md"
       >
         <button
           type="button"
           onClick={onDone}
-          className="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-full bg-card/80 px-3 py-1.5 text-xs font-bold text-muted-foreground backdrop-blur transition-colors hover:text-foreground"
+          className="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-full bg-card/80 px-3 py-1.5 text-xs font-bold text-muted-foreground backdrop-blur transition-colors hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
         >
           {t("onbSkip")}
           <X className="size-3.5" aria-hidden />
@@ -240,7 +243,7 @@ export function Onboarding({ settings, onDone }: { settings: GameSettings; onDon
                 type="button"
                 onClick={() => go(-1)}
                 aria-label={t("onbBack")}
-                className="flex size-14 shrink-0 items-center justify-center rounded-lg border border-border/70 border-b-4 border-b-black/10 bg-secondary text-secondary-foreground transition-[translate] active:translate-y-0.5"
+                className="flex w-14 shrink-0 items-center justify-center self-stretch rounded-lg border border-border/70 border-b-4 border-b-black/10 bg-secondary text-secondary-foreground transition-[translate] active:translate-y-0.5"
               >
                 <ArrowLeft className="size-5" aria-hidden />
               </button>

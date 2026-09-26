@@ -96,7 +96,9 @@ export function Dashboard({ session, device, onLogout }: DashboardProps) {
   const mine = device && device.profileId === profile.id ? device : null;
 
   return (
-    <div className="relative min-h-dvh overflow-x-hidden">
+    <div className="relative min-h-dvh overflow-x-clip">
+      {/* overflow-x-clip, not -hidden: "hidden" makes this div a scroll box and
+          the sticky header would stick to it instead of to the page. */}
       <div className="fixed inset-0 -z-10">
         <WelcomeBackdrop />
       </div>
@@ -105,7 +107,7 @@ export function Dashboard({ session, device, onLogout }: DashboardProps) {
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
           <div className="flex items-center gap-2">
             <span
-              className="flex size-8 -rotate-6 items-center justify-center rounded-xl border-b-2 border-black/20 bg-linear-to-b from-primary to-primary/75 font-display text-lg font-black text-primary-foreground"
+              className="flex size-8 -rotate-6 items-center justify-center rounded-lg border-b-2 border-black/20 bg-linear-to-b from-primary to-primary/75 font-display text-lg font-black text-primary-foreground"
               aria-hidden
             >
               ×
@@ -123,7 +125,7 @@ export function Dashboard({ session, device, onLogout }: DashboardProps) {
               className="flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-sm font-bold transition-colors hover:border-primary/40"
             >
               <Gamepad2 className="size-4 text-primary" aria-hidden />
-              <span className="hidden sm:inline">{t("game")}</span>
+              <span className="sr-only sm:not-sr-only">{t("game")}</span>
             </Link>
             <button
               type="button"
@@ -131,7 +133,7 @@ export function Dashboard({ session, device, onLogout }: DashboardProps) {
               className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-bold text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
             >
               <LogOut className="size-4" aria-hidden />
-              <span className="hidden sm:inline">{t("signOut")}</span>
+              <span className="sr-only sm:not-sr-only">{t("signOut")}</span>
             </button>
           </div>
         </div>
@@ -150,7 +152,7 @@ export function Dashboard({ session, device, onLogout }: DashboardProps) {
         <TabsPrimitive.Root value={tab} onValueChange={(value) => setTab(value as Tab)}>
           <TabsPrimitive.List
             aria-label={t("parentDashboard")}
-            className="sticky top-[3.6rem] z-20 flex gap-1 rounded-full border border-border/70 bg-card/90 p-1 shadow-sm backdrop-blur-md"
+            className="sticky top-[53px] z-20 flex gap-1 rounded-full border border-border/70 bg-card/90 p-1 shadow-sm backdrop-blur-md"
           >
             {TABS.map(({ value, label, icon: Icon }) => (
               <TabsPrimitive.Trigger
@@ -166,7 +168,7 @@ export function Dashboard({ session, device, onLogout }: DashboardProps) {
                   />
                 )}
                 <Icon className="relative size-4 shrink-0" aria-hidden />
-                <span className={cn("relative truncate", tab !== value && "hidden sm:inline")}>{t(label)}</span>
+                <span className={cn("relative truncate", tab !== value && "sr-only sm:not-sr-only")}>{t(label)}</span>
               </TabsPrimitive.Trigger>
             ))}
           </TabsPrimitive.List>
@@ -196,7 +198,9 @@ export function Dashboard({ session, device, onLogout }: DashboardProps) {
               </Panel>
             </TabsPrimitive.Content>
 
-            <TabsPrimitive.Content value="settings">
+            {/* Kept mounted: leaving the tab to check a number must not throw
+                away a half-made settings change. */}
+            <TabsPrimitive.Content value="settings" forceMount className={tab !== "settings" ? "hidden" : undefined}>
               <SettingsForm token={session.token} settings={settings} locale={profile.locale} name={profile.name} />
             </TabsPrimitive.Content>
 
@@ -276,7 +280,7 @@ function ChildCard({
         <Fact icon={<CoinIcon className="size-5" />} value={coins === null ? "—" : String(coins)} label={t("coins")} />
         <Fact
           icon={<Flame className={cn("size-4", streakDays > 0 ? "text-combo" : "text-muted-foreground")} aria-hidden />}
-          value={t("streakDays", { days: streakDays })}
+          value={streakDays > 0 ? t("streakDays", { days: streakDays }) : "—"}
         />
       </div>
     </Panel>

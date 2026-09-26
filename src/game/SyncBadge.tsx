@@ -13,7 +13,7 @@ export function SyncBadge({ status }: { status: SyncStatus }) {
 
   return (
     <span
-      className="flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground"
+      className="flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-muted-foreground"
       title={
         status.online ? t("pendingTitle", { count: status.pending }) : t("offlineTitle")
       }

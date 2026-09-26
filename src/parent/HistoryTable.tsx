@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useQuery } from "convex/react";
 import { Check, X } from "lucide-react";
 import { api } from "@convex/_generated/api";
-import { Button } from "@/components/ui/button";
+import { secondaryActionClass } from "@/game/GameDialog";
+import { cn } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -68,7 +69,7 @@ export function HistoryTable({ token }: { token: string }) {
                       row.given
                     )}
                   </span>
-                  <span className="mt-0.5 flex flex-wrap gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                  <span className="mt-0.5 flex flex-wrap gap-1 text-xs uppercase tracking-wider text-muted-foreground">
                     {row.usedHalfHalf && <span>{t("halfHalf")}</span>}
                     {row.usedVisualHint && <span>{t("usedHint")}</span>}
                     {row.mode === "type" && <span>{t("usedTyped")}</span>}
@@ -93,9 +94,9 @@ export function HistoryTable({ token }: { token: string }) {
       </div>
 
       {page.nextBefore !== null && (
-        <Button variant="outline" className="w-full" onClick={() => setLimit((n) => n + 25)}>
+        <button type="button" className={cn(secondaryActionClass, "py-2.5 text-base")} onClick={() => setLimit((n) => n + 25)}>
           {t("showMore")}
-        </Button>
+        </button>
       )}
     </div>
   );

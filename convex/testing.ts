@@ -1,5 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
+import { internal } from "./_generated/api";
+import { deleteProfileRows, purgeHistory } from "./admin";
 
 /**
  * Development utilities.
@@ -59,45 +61,12 @@ export const purgeProfile = internalMutation({
       };
     }
 
-    const attempts = await ctx.db
-      .query("attempts")
-      .withIndex("by_profile_created", (q) => q.eq("profileId", profile._id))
-      .collect();
-    for (const attempt of attempts) await ctx.db.delete(attempt._id);
-
-    // The per-fact tables were left behind before; the admin page's delete
-    // clears them too, so both ways out remove the same things.
-    const facts = await ctx.db
-      .query("factStats")
-      .withIndex("by_profile_fact", (q) => q.eq("profileId", profile._id))
-      .collect();
-    for (const fact of facts) await ctx.db.delete(fact._id);
-
-    const sessions = await ctx.db
-      .query("parentSessions")
-      .withIndex("by_profile", (q) => q.eq("profileId", profile._id))
-      .collect();
-    for (const session of sessions) await ctx.db.delete(session._id);
-
-    const settings = await ctx.db
-      .query("settings")
-      .withIndex("by_profile", (q) => q.eq("profileId", profile._id))
-      .unique();
-    if (settings) await ctx.db.delete(settings._id);
-
-    const devices = await ctx.db
-      .query("devices")
-      .withIndex("by_profile_token", (q) => q.eq("profileId", profile._id))
-      .collect();
-    for (const device of devices) await ctx.db.delete(device._id);
-
-    const progress = await ctx.db
-      .query("progress")
-      .withIndex("by_profile", (q) => q.eq("profileId", profile._id))
-      .unique();
-    if (progress) await ctx.db.delete(progress._id);
-
-    await ctx.db.delete(profile._id);
-    return { deleted: true, name: profile.name, attempts: attempts.length };
+    await deleteProfileRows(ctx, profile._id);
+    // History in batches, like the admin page: one mutation holding a long
+    // history would hit the transaction limits and delete nothing.
+    if (await purgeHistory(ctx, profile._id)) {
+      await ctx.scheduler.runAfter(0, internal.admin.purgeRemaining, { profileId: profile._id });
+    }
+    return { deleted: true, name: profile.name };
   },
 });

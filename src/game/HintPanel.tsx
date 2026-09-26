@@ -34,7 +34,7 @@ export function HintPanel({ problem, onClose }: HintPanelProps) {
   const { op, a, b, hint } = problem;
 
   return (
-    <div className="space-y-3 rounded-lg border-2 border-primary/15 bg-card/80 p-4 shadow-md">
+    <div className="space-y-3 rounded-xl border border-border/70 bg-card/85 p-4 shadow-[0_12px_32px_-16px_oklch(0.4_0.16_295/0.45)] backdrop-blur-md">
       <header className="flex items-center gap-3">
         <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
           <Lightbulb className="size-5" aria-hidden />
@@ -188,7 +188,7 @@ function GroupsHint({ hint, op }: { hint: HintModel; op: "mul" | "div" }) {
           <button
             type="button"
             onClick={() => (running ? stop() : setStep(0))}
-            className="flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-black uppercase tracking-widest text-primary-foreground shadow-sm focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
+            className="flex items-center gap-2 rounded-full border-b-4 border-black/20 bg-linear-to-b from-primary to-primary/80 px-4 py-2 text-xs font-black uppercase tracking-widest text-primary-foreground shadow-sm transition-[translate,border-width] active:translate-y-0.5 active:border-b-2 focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
           >
             {running ? (
               <Square className="size-3.5" aria-hidden />
@@ -213,7 +213,7 @@ function GroupsHint({ hint, op }: { hint: HintModel; op: "mul" | "div" }) {
           <button
             type="button"
             onClick={() => setMode(nextHintMode)}
-            className="flex items-center gap-2 rounded-full bg-card px-4 py-2 text-xs font-black uppercase tracking-widest text-muted-foreground shadow-sm focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
+            className="flex items-center gap-2 rounded-full border-b-2 border-black/10 bg-secondary px-4 py-2 text-xs font-black uppercase tracking-widest text-secondary-foreground transition-[translate] active:translate-y-px focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
           >
             <RefreshCw className="size-3.5" aria-hidden />
             {t("changeView")}

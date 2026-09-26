@@ -39,7 +39,8 @@ export default defineConfig({
         // dashboard stays out of it and is fetched the first time a parent
         // actually opens it — then kept, because the second visit is usually
         // from the same laptop.
-        globIgnores: ["**/parent-*.js"],
+        // The admin page likewise: only the owner ever opens it.
+        globIgnores: ["**/parent-*.js", "**/admin-*.js"],
         runtimeCaching: [
           {
             urlPattern: /\/assets\/parent-[^/]+\.js$/,
@@ -68,6 +69,8 @@ export default defineConfig({
          */
         manualChunks(id: string) {
           if (id.includes("/src/parent/")) return "parent";
+          // A stable name, so the precache can leave the owner's page out.
+          if (id.includes("/src/admin/")) return "admin";
           if (!id.includes("node_modules")) return undefined;
           if (/node_modules\/(react|react-dom|react-router|react-router-dom|scheduler)\//.test(id))
             return "react";

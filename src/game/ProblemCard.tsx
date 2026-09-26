@@ -40,6 +40,7 @@ export function ProblemCard({
   flyFrom,
 }: ProblemCardProps) {
   const { t } = useI18n();
+  const reduceMotion = useReducedMotion();
   const tokens = prompt.split(" ");
   const verdict = outcome ? (outcome.isCorrect ? "correct" : "wrong") : null;
 
@@ -92,7 +93,7 @@ export function ProblemCard({
 
         <motion.span
           key={`eq-${questionId}`}
-          className="text-muted-foreground/60"
+          className="text-muted-foreground"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: tokens.length * 0.07 }}
@@ -126,7 +127,7 @@ export function ProblemCard({
                 stiffness: 500,
                 damping: 18,
                 // After the landing, when the answer flew there.
-                delay: flyFrom && outcome.isCorrect ? FLIGHT_S : 0,
+                delay: flyFrom && outcome.isCorrect && !reduceMotion ? FLIGHT_S : 0,
               }}
               className={cn(
                 "flex h-8 items-center gap-1.5 rounded-full border-2 bg-card px-4 font-display text-lg font-black tabular-nums shadow-md",

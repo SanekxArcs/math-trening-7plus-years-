@@ -74,7 +74,7 @@ export function DeltaChip({ now, before, unit = "" }: { now: number; before: num
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-bold tabular-nums",
+        "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs font-bold tabular-nums",
         up ? "bg-correct/15 text-correct" : "bg-wrong/12 text-wrong",
       )}
     >

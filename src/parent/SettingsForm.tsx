@@ -80,7 +80,8 @@ export function SettingsForm({ token, settings, locale, name }: SettingsFormProp
 
   const set = <K extends keyof GameSettings>(key: K, value: GameSettings[K]) => {
     setDraft((current) => ({ ...current, [key]: value }));
-    if (state === "error") setState("idle");
+    // A new edit after a save or an error is simply "unsaved" again.
+    if (state !== "saving") setState("idle");
   };
 
   const toggleOp = (op: Op) => {
@@ -95,11 +96,21 @@ export function SettingsForm({ token, settings, locale, name }: SettingsFormProp
     setState("saving");
     setMessage(null);
     try {
-      await update({ token, patch: draft });
+      // Only what was changed here: sending the whole draft would put back any
+      // field another device or an applied suggestion changed in the meantime.
+      const base = lastServer.current;
+      const patch = Object.fromEntries(
+        (Object.keys(draft) as (keyof GameSettings)[])
+          .filter((key) => !sameSettings({ ...base, [key]: draft[key] }, base))
+          .map((key) => [key, draft[key]]),
+      ) as Partial<GameSettings>;
+      await update({ token, patch });
       setState("saved");
     } catch (cause) {
       setState("error");
-      setMessage(cause instanceof Error ? cause.message : t("couldNotSave"));
+      // The server's own text is English and technical; the parent gets ours.
+      void cause;
+      setMessage(t("couldNotSave"));
     }
   };
 
@@ -384,7 +395,7 @@ function SaveBar({
         >
           <div className="mx-auto flex max-w-3xl items-center gap-3 rounded-xl border border-border/70 bg-card/95 p-2.5 pl-4 shadow-[0_-4px_32px_-12px_oklch(0.4_0.16_295/0.5)] backdrop-blur-md">
             <p role="status" className={cn("min-w-0 flex-1 text-sm font-bold", state === "error" && "text-wrong")}>
-              {state === "saved"
+              {state === "saved" && !dirty
                 ? t("savedToDevice")
                 : state === "error"
                   ? (message ?? t("couldNotSave"))
@@ -397,7 +408,7 @@ function SaveBar({
                 className="flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-bold text-muted-foreground transition-colors hover:text-foreground"
               >
                 <Undo2 className="size-4" aria-hidden />
-                <span className="hidden sm:inline">{t("discard")}</span>
+                <span className="sr-only sm:not-sr-only">{t("discard")}</span>
               </button>
             )}
             {state === "saved" && !dirty ? (
@@ -483,6 +494,8 @@ function SliderField({
         max={max}
         step={step}
         aria-label={label}
+        thumbLabel={label}
+        valueText={show(value)}
         onValueChange={([next]) => {
           if (typeof next === "number") onChange(next);
         }}

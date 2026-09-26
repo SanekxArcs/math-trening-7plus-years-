@@ -152,14 +152,14 @@ function AdminDashboard({ session, onSignOut }: { session: AdminSession; onSignO
   }, [notice]);
 
   return (
-    <div className="relative min-h-dvh overflow-x-hidden">
+    <div className="relative min-h-dvh overflow-x-clip">
       <div className="fixed inset-0 -z-10">
         <WelcomeBackdrop />
       </div>
       <header className="sticky top-0 z-30 border-b border-border/60 bg-background/75 backdrop-blur-md">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
           <div className="flex items-center gap-2">
-            <span className="flex size-8 items-center justify-center rounded-xl bg-linear-to-b from-foreground to-foreground/80 text-background">
+            <span className="flex size-8 items-center justify-center rounded-lg bg-linear-to-b from-foreground to-foreground/80 text-background">
               <ShieldCheck className="size-4.5" aria-hidden />
             </span>
             <span className="font-display font-black leading-none">
@@ -333,26 +333,18 @@ function UserList({ users, onDelete }: { users: UserRow[]; onDelete: (user: User
         icon={Users}
         title={t("adminUserList")}
         hint={t("adminUserCount", { count: users.length })}
-        action={
-          <label className="relative hidden w-56 sm:block">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder={t("adminSearch")}
-              aria-label={t("adminSearch")}
-              className="w-full rounded-full border border-border bg-background/80 py-1.5 pl-9 pr-3 text-sm outline-none focus-visible:border-primary"
-            />
-          </label>
-        }
       />
-      <input
-        value={search}
-        onChange={(event) => setSearch(event.target.value)}
-        placeholder={t("adminSearch")}
-        aria-label={t("adminSearch")}
-        className="mb-3 w-full rounded-full border border-border bg-background/80 px-4 py-2 text-sm outline-none focus-visible:border-primary sm:hidden"
-      />
+      {/* One search box for every width, with the icon inside it. */}
+      <label className="relative mb-3 block sm:max-w-xs">
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+        <input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder={t("adminSearch")}
+          aria-label={t("adminSearch")}
+          className="w-full rounded-full border border-border bg-background/80 py-2 pl-9 pr-4 text-sm outline-none focus-visible:border-primary"
+        />
+      </label>
       {shown.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t("adminNoUsers")}</p>
       ) : (

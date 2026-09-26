@@ -7,7 +7,7 @@ import { sha256 } from "./sha256.js";
 const DAY = 86_400_000;
 /** How far back the activity numbers look, and how many answers they read at most. */
 const WINDOW_DAYS = 30;
-const SAMPLE = 8000;
+const SAMPLE = 6000;
 /** Deletions per mutation, well inside Convex's per-transaction limits. */
 const BATCH = 500;
 
@@ -67,9 +67,11 @@ export const overview = query({
     const now = Date.now();
     const since = now - WINDOW_DAYS * DAY;
 
-    const profiles = await ctx.db.query("profiles").take(2000);
-    const progress = await ctx.db.query("progress").take(2000);
-    const devices = await ctx.db.query("devices").take(4000);
+    // Well under Convex's per-query document limit in total (about 16k), so
+    // a growing app degrades to a capped sample instead of failing outright.
+    const profiles = await ctx.db.query("profiles").take(1000);
+    const progress = await ctx.db.query("progress").take(1000);
+    const devices = await ctx.db.query("devices").take(2000);
     const recent = await ctx.db
       .query("attempts")
       .withIndex("by_created", (q) => q.gte("createdAt", since))
@@ -82,43 +84,51 @@ export const overview = query({
 
     type Usage = { last: number; answers: number; correct: number; week: number };
     const usage = new Map<Id<"profiles">, Usage>();
-    const byDay = new Map<string, { total: number; correct: number; active: Set<string> }>();
-    const activeSince = (from: number) => new Set(recent.filter((a) => a.createdAt >= from).map((a) => a.profileId)).size;
+    const byDay = new Map<string, { total: number; correct: number }>();
+    const weekAgo = now - 7 * DAY;
+    const activeToday = new Set<Id<"profiles">>();
+    let answersWeek = 0;
+    let correctWeek = 0;
 
+    // One pass: every figure below is read off this loop, not a re-scan of the sample.
     for (const attempt of recent) {
       const entry = usage.get(attempt.profileId) ?? { last: 0, answers: 0, correct: 0, week: 0 };
       entry.last = Math.max(entry.last, attempt.createdAt);
       entry.answers++;
       if (attempt.isCorrect) entry.correct++;
-      if (attempt.createdAt >= now - 7 * DAY) entry.week++;
+      if (attempt.createdAt >= weekAgo) {
+        entry.week++;
+        answersWeek++;
+        if (attempt.isCorrect) correctWeek++;
+      }
+      if (attempt.createdAt >= now - DAY) activeToday.add(attempt.profileId);
       usage.set(attempt.profileId, entry);
 
-      const bucket = byDay.get(dayKey(attempt.createdAt)) ?? { total: 0, correct: 0, active: new Set<string>() };
+      const key = dayKey(attempt.createdAt);
+      const bucket = byDay.get(key) ?? { total: 0, correct: 0 };
       bucket.total++;
       if (attempt.isCorrect) bucket.correct++;
-      bucket.active.add(attempt.profileId);
-      byDay.set(dayKey(attempt.createdAt), bucket);
+      byDay.set(key, bucket);
     }
 
     // Dense, oldest first: a quiet day shows as a gap, not as nothing.
     const daily = Array.from({ length: 14 }, (_, i) => {
       const day = dayKey(now - (13 - i) * DAY);
       const bucket = byDay.get(day);
-      return { day, total: bucket?.total ?? 0, correct: bucket?.correct ?? 0, active: bucket?.active.size ?? 0 };
+      return { day, total: bucket?.total ?? 0, correct: bucket?.correct ?? 0 };
     });
 
-    const week = recent.filter((a) => a.createdAt >= now - 7 * DAY);
     const names = new Map(profiles.map((profile) => [profile._id, profile]));
 
     return {
       totals: {
         users: profiles.length,
-        newThisWeek: profiles.filter((profile) => profile.createdAt >= now - 7 * DAY).length,
-        activeToday: activeSince(now - DAY),
-        activeWeek: activeSince(now - 7 * DAY),
-        activeMonth: activeSince(since),
-        answersWeek: week.length,
-        accuracyWeek: week.length === 0 ? null : week.filter((a) => a.isCorrect).length / week.length,
+        newThisWeek: profiles.filter((profile) => profile.createdAt >= weekAgo).length,
+        activeToday: activeToday.size,
+        activeWeek: [...usage.values()].filter((entry) => entry.week > 0).length,
+        activeMonth: usage.size,
+        answersWeek,
+        accuracyWeek: answersWeek === 0 ? null : correctWeek / answersWeek,
         devices: profiles.length + devices.length,
         sampled: recent.length,
         capped: recent.length === SAMPLE,
@@ -162,7 +172,7 @@ export const overview = query({
 });
 
 /** Deletes up to BATCH of a profile's answers and fact stats; says whether any are left. */
-async function purgeHistory(ctx: MutationCtx, profileId: Id<"profiles">): Promise<boolean> {
+export async function purgeHistory(ctx: MutationCtx, profileId: Id<"profiles">): Promise<boolean> {
   const attempts = await ctx.db
     .query("attempts")
     .withIndex("by_profile_created", (q) => q.eq("profileId", profileId))
@@ -174,6 +184,28 @@ async function purgeHistory(ctx: MutationCtx, profileId: Id<"profiles">): Promis
     .take(BATCH);
   for (const row of facts) await ctx.db.delete(row._id);
   return attempts.length === BATCH || facts.length === BATCH;
+}
+
+/**
+ * Deletes the profile row and everything small hanging off it — sessions,
+ * progress, settings, linked devices — but not the answer history, which can
+ * be long and is cleared separately. Shared with `testing:purgeProfile`, so
+ * both ways of removing a user remove the same things.
+ */
+export async function deleteProfileRows(ctx: MutationCtx, profileId: Id<"profiles">): Promise<void> {
+  for (const table of ["parentSessions", "progress", "settings"] as const) {
+    const rows = await ctx.db
+      .query(table)
+      .withIndex("by_profile", (q) => q.eq("profileId", profileId))
+      .collect();
+    for (const row of rows) await ctx.db.delete(row._id);
+  }
+  const linked = await ctx.db
+    .query("devices")
+    .withIndex("by_profile_token", (q) => q.eq("profileId", profileId))
+    .collect();
+  for (const row of linked) await ctx.db.delete(row._id);
+  await ctx.db.delete(profileId);
 }
 
 /** The leftover history of a deleted profile, cleared in the background a batch at a time. */
@@ -202,20 +234,7 @@ export const deleteProfile = mutation({
     if (!profile) return { deleted: false as const };
     if (profile.name.trim() !== confirmName.trim()) throw new ConvexError("NAME_MISMATCH");
 
-    for (const table of ["parentSessions", "progress", "settings"] as const) {
-      const rows = await ctx.db
-        .query(table)
-        .withIndex("by_profile", (q) => q.eq("profileId", profileId))
-        .collect();
-      for (const row of rows) await ctx.db.delete(row._id);
-    }
-    const linked = await ctx.db
-      .query("devices")
-      .withIndex("by_profile_token", (q) => q.eq("profileId", profileId))
-      .collect();
-    for (const row of linked) await ctx.db.delete(row._id);
-
-    await ctx.db.delete(profileId);
+    await deleteProfileRows(ctx, profileId);
     if (await purgeHistory(ctx, profileId)) {
       await ctx.scheduler.runAfter(0, internal.admin.purgeRemaining, { profileId });
     }

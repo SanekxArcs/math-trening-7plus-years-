@@ -248,9 +248,10 @@ export const pinForSession = internalQuery({
 });
 
 /**
- * Stores a new PIN and signs out every other dashboard session: a PIN is
- * changed because someone else might know the old one, and that someone may
- * be signed in right now.
+ * Stores a new PIN and signs out every other dashboard session, and every
+ * device that was linked with the old PIN: a PIN is changed because someone
+ * else might know it, and a linked device is exactly what knowing it buys.
+ * The device that created the profile holds its own token and keeps working.
  */
 export const setPin = internalMutation({
   args: {
@@ -269,6 +270,11 @@ export const setPin = internalMutation({
     for (const session of sessions) {
       if (session.tokenHash !== keep) await ctx.db.delete(session._id);
     }
+    const linked = await ctx.db
+      .query("devices")
+      .withIndex("by_profile_token", (q) => q.eq("profileId", profileId))
+      .collect();
+    for (const device of linked) await ctx.db.delete(device._id);
   },
 });
 

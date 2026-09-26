@@ -44,6 +44,16 @@ function ProfileSection({ token, profile }: { token: string; profile: AccountPan
   const [name, setName] = useState(profile.name);
   const [avatar, setAvatar] = useState(profile.avatarEmoji);
   const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  // Follow a rename made elsewhere, unless this form is mid-edit: otherwise a
+  // later save would quietly put the old name back.
+  const [seen, setSeen] = useState(profile);
+  if (seen.name !== profile.name || seen.avatarEmoji !== profile.avatarEmoji) {
+    if (name.trim() === seen.name && avatar === seen.avatarEmoji) {
+      setName(profile.name);
+      setAvatar(profile.avatarEmoji);
+    }
+    setSeen(profile);
+  }
   const dirty = name.trim() !== profile.name || avatar !== profile.avatarEmoji;
 
   const save = async () => {
@@ -68,7 +78,10 @@ function ProfileSection({ token, profile }: { token: string; profile: AccountPan
           <input
             id="child-name"
             value={name}
-            onChange={(event) => setName(event.target.value)}
+            onChange={(event) => {
+              setName(event.target.value);
+              if (state === "error") setState("idle");
+            }}
             maxLength={24}
             autoComplete="off"
             className={fieldClass}
@@ -187,7 +200,10 @@ function PinSection({ token }: { token: string }) {
       <input
         id={id}
         value={value}
-        onChange={(event) => onChange(digits(event.target.value))}
+        onChange={(event) => {
+          setError(null);
+          onChange(digits(event.target.value));
+        }}
         type="password"
         inputMode="numeric"
         autoComplete={auto}

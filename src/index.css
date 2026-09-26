@@ -149,9 +149,13 @@
   --radius-md: calc(var(--radius) - 4px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 8px);
+  /* Kept above xl, so the scale never runs backwards. */
+  --radius-2xl: calc(var(--radius) + 16px);
 
-  --font-display: "Baloo 2", "Fredoka", system-ui, sans-serif;
-  --font-sans: "Nunito", system-ui, sans-serif;
+  /* Self-hosted (see main.tsx) and with Cyrillic, which the Ukrainian UI
+     needs: its black weight is round and friendly enough for the headings. */
+  --font-display: "Nunito Variable", "Nunito", system-ui, sans-serif;
+  --font-sans: "Nunito Variable", "Nunito", system-ui, sans-serif;
 }
 
 @layer base {
@@ -212,6 +216,12 @@
   }
 }
 
+/*
+  Component classes live in the components layer: above the base styles,
+  but below utilities, so a utility on a tile (absolute, a radius, a colour)
+  still wins. Unlayered, they silently beat every utility.
+*/
+@layer components {
 /* A glint that crosses a filled bar now and then, so it reads as alive. */
 .hud-sheen::after {
   content: "";
@@ -238,6 +248,8 @@
   animation: hud-stripes 0.7s linear infinite;
 }
 
+}
+
 /*
   Answer tiles and numpad keys: chunky 3D candy buttons, each tinted by its own
   hue in --c. The raised edge is a hard box-shadow rather than a border, so a
@@ -252,13 +264,15 @@
   initial-value: #7c3aed;
 }
 
+@layer components {
 .answer-tile {
   --c: var(--tile, var(--primary));
   --edge: color-mix(in oklch, var(--c) 72%, black);
   position: relative;
   isolation: isolate;
   border-radius: var(--radius-lg);
-  color: color-mix(in oklch, var(--c) 72%, var(--foreground));
+  /* Dark enough to read on its own tint: the lighter hues (yellow, teal) were borderline. */
+  color: color-mix(in oklch, var(--c) 55%, var(--foreground));
   background: linear-gradient(
     180deg,
     color-mix(in oklch, var(--c) 7%, var(--card)),
@@ -348,6 +362,8 @@
 
 .answer-tile[data-state="hidden"]::before {
   display: none;
+}
+
 }
 
 /* Respect the OS setting. Everything animated must still be usable at 0s. */

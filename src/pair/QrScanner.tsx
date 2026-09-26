@@ -55,7 +55,12 @@ function Scanner({ onCode, onClose }: { onCode: (code: string) => void; onClose:
         setProblem((cause as DOMException)?.name === "NotAllowedError" ? "cameraDenied" : "cameraUnavailable");
         return;
       }
-      if (stopped || !video.current) return;
+      // Closed while the permission prompt was up: the stream arrived after
+      // the cleanup ran, so it has to be stopped here or the camera stays on.
+      if (stopped || !video.current) {
+        for (const track of stream.getTracks()) track.stop();
+        return;
+      }
       video.current.srcObject = stream;
       await video.current.play().catch(() => undefined);
 

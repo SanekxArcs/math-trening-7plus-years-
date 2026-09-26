@@ -28,7 +28,8 @@ const SYMBOL: Record<Op, string> = { add: "+", sub: "−", mul: "×", div: "÷" 
 
 const BAND_CLASS: Record<MasteryBand, string> = {
   unseen: "bg-transparent text-muted-foreground/50",
-  learning: "bg-mastery-1 text-white",
+  // The lightest step is too pale for white text; the darker two keep it.
+  learning: "bg-mastery-1 text-[oklch(0.25_0.08_295)]",
   practising: "bg-mastery-2 text-white",
   known: "bg-mastery-3 text-white",
 };

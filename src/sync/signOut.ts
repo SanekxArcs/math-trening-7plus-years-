@@ -1,11 +1,22 @@
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { convex } from "@/lib/convex";
-import { readLevel } from "@/game/useLocalLevel";
+import { currentLevel } from "@/game/useLocalLevel";
 import { readStable } from "@/game/useStable";
 import { db, type DeviceIdentity } from "./db";
 import { flush } from "./outbox";
 import { toBackup } from "./useProgressSync";
+
+/**
+ * How long each network step may take. Convex queues a call made while
+ * offline instead of failing it, so without a limit an offline sign-out would
+ * wait forever for a connection that is not coming.
+ */
+const STEP_MS = 4000;
+
+function withinTime<T>(work: Promise<T>): Promise<T | undefined> {
+  return Promise.race([work, new Promise<undefined>((resolve) => setTimeout(resolve, STEP_MS))]);
+}
 
 /** Kept across a sign-out: the next person to set up still reads their own language. */
 const KEEP = new Set(["math_master_lang"]);
@@ -27,30 +38,32 @@ export async function signOutDevice(identity: DeviceIdentity | null, parentToken
       deviceToken: identity.deviceToken,
     };
     try {
-      await flush(convex, identity);
+      await withinTime(flush(convex, identity));
     } catch {
       /* offline: those answers were warned about */
     }
     try {
       const stable = readStable();
       if (stable.savedAt > 0) {
-        await convex.mutation(api.progress.save, {
-          ...credentials,
-          progress: toBackup(stable, readLevel()),
-        });
+        await withinTime(
+          convex.mutation(api.progress.save, {
+            ...credentials,
+            progress: toBackup(stable, currentLevel()),
+          }),
+        );
       }
     } catch {
       /* the backup keeps whatever it last had */
     }
     try {
-      await convex.mutation(api.profiles.signOutDevice, credentials);
+      await withinTime(convex.mutation(api.profiles.signOutDevice, credentials));
     } catch {
       /* the token then just goes unused */
     }
   }
   if (convex && parentToken) {
     try {
-      await convex.mutation(api.parent.logout, { token: parentToken });
+      await withinTime(convex.mutation(api.parent.logout, { token: parentToken }));
     } catch {
       /* it expires on its own */
     }

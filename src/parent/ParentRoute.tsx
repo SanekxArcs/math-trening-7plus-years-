@@ -1,4 +1,6 @@
 import { Link } from "react-router-dom";
+import { cn } from "@/lib/utils";
+import { primaryActionClass } from "@/game/GameDialog";
 import { convex } from "@/lib/convex";
 import { useI18n } from "@/i18n/useI18n";
 import { useDeviceIdentity } from "@/sync/useSync";
@@ -42,7 +44,7 @@ function NoBackend() {
       </p>
       <Link
         to="/"
-        className="rounded-full bg-primary px-6 py-3 font-display font-bold text-primary-foreground shadow-md"
+        className={cn(primaryActionClass, "w-auto px-6 py-3 text-lg")}
       >
         {t("backToGame")}
       </Link>

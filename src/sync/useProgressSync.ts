@@ -72,17 +72,14 @@ export function useProgressSync(identity: IdentityState): void {
     restoreStable({ ...backup, asleepSince: local.asleepSince });
   }, [remote]);
 
-  // Up: a newer device copy, or a higher level, is sent after a short pause.
+  // Up: a newer device copy is sent after a short pause. Every level change
+  // stamps the stable (see useLocalLevel), so "newer" covers the level too,
+  // and two devices can never keep overwriting each other with equal stamps.
   useEffect(() => {
     if (!args || remote?.status !== "ok") return;
     const backup = remote.progress;
     const newer = stable.savedAt > (backup?.savedAt ?? 0);
-    // A level moved on this device with nothing else changing — the next level
-    // after coins were already sent — still goes up, as long as this copy is
-    // not older than the backup's.
-    const levelMoved =
-      level !== (backup?.level ?? 1) && stable.savedAt >= (backup?.savedAt ?? 0) && stable.savedAt > 0;
-    if (!newer && !levelMoved) return;
+    if (!newer) return;
 
     const id = window.setTimeout(() => {
       save({ ...args, progress: toBackup(stable, level) }).catch(() => {

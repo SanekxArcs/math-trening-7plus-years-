@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils";
 import type { TranslationKey } from "@/i18n/translations";
 import { useI18n } from "@/i18n/useI18n";
 import { PetArt } from "@/pets/PetArt";
+import { primaryActionClass } from "@/game/GameDialog";
 import { AccuracyByOperation, EmptyNote, PracticeTrend, opLabel } from "./charts";
 import { suggest, weeks, type Suggestion } from "./suggestions";
 import { DeltaChip, OP_HUE, OP_SYMBOL, Panel, PanelTitle } from "./ui";
@@ -127,7 +128,9 @@ export function Overview({
         <PanelTitle icon={Lightbulb} title={t("suggestionsTitle")} hint={t("suggestionsHint")} hue="var(--combo)" />
         <ul className="space-y-2">
           {suggestions.map((suggestion) => (
-            <SuggestionRow key={suggestion.kind} suggestion={suggestion} token={token} />
+            // Keyed on the change too: "Ready for Hard?" applied becomes "Ready for
+            // Expert?", which must not inherit the first one's "Applied".
+            <SuggestionRow key={`${suggestion.kind}:${JSON.stringify(suggestion.patch ?? null)}`} suggestion={suggestion} token={token} />
           ))}
         </ul>
       </Panel>
@@ -230,7 +233,7 @@ function Welcome() {
           }
           setShown(false);
         }}
-        className="mt-4 rounded-full bg-primary px-5 py-2 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/90"
+        className={cn(primaryActionClass, "mt-4 w-auto px-5 py-2 text-base")}
       >
         {t("gotIt")}
       </button>
@@ -269,7 +272,7 @@ function WeekTile({
 function SuggestionRow({ suggestion, token }: { suggestion: Suggestion; token: string }) {
   const { t } = useI18n();
   const update = useMutation(api.parent.updateSettings);
-  const [state, setState] = useState<"idle" | "saving" | "done">("idle");
+  const [state, setState] = useState<"idle" | "saving" | "done" | "error">("idle");
   const { params } = suggestion;
 
   const vars = {
@@ -297,7 +300,7 @@ function SuggestionRow({ suggestion, token }: { suggestion: Suggestion; token: s
       await update({ token, patch: suggestion.patch });
       setState("done");
     } catch {
-      setState("idle");
+      setState("error");
     }
   };
 
@@ -316,7 +319,7 @@ function SuggestionRow({ suggestion, token }: { suggestion: Suggestion; token: s
         <button
           type="button"
           onClick={apply}
-          disabled={state !== "idle"}
+          disabled={state === "saving" || state === "done"}
           className={cn(
             "flex shrink-0 items-center gap-1.5 rounded-full border-b-2 px-3 py-1.5 text-sm font-bold transition-[translate,background-color] active:translate-y-px",
             state === "done"
@@ -326,7 +329,7 @@ function SuggestionRow({ suggestion, token }: { suggestion: Suggestion; token: s
         >
           {state === "saving" && <Loader2 className="size-3.5 animate-spin" aria-hidden />}
           {state === "done" && <Check className="size-3.5" strokeWidth={3} aria-hidden />}
-          {state === "done" ? t("applied") : t("apply")}
+          {state === "done" ? t("applied") : state === "error" ? t("couldNotSave") : t("apply")}
         </button>
       )}
     </li>

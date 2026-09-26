@@ -139,7 +139,7 @@ export function VisualHint({ hint, mode, litGroups = null }: VisualHintProps) {
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ type: "spring", stiffness: 500, damping: 16 }}
-              className="absolute -right-2 -top-2 z-10 min-w-5 rounded-full bg-primary px-1 text-center text-[10px] font-black leading-5 tabular-nums text-primary-foreground shadow"
+              className="absolute -right-2 -top-2 z-10 min-w-6 rounded-full bg-primary px-1 text-center text-xs font-black leading-6 tabular-nums text-primary-foreground shadow"
             >
               {(groupIndex + 1) * perGroup}
             </motion.span>

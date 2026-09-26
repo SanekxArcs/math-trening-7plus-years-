@@ -394,12 +394,26 @@ describe("GameScreen", () => {
   it("loses the game, and the level, when the points sink to a quarter of the goal below zero", async () => {
     const user = userEvent.setup();
     localStorage.setItem("math_master_level", "2");
-    // Level 2 of a 20-point goal plays to 30, so the game is lost at -8:
-    // a single first mistake (-10) is enough.
+    // Level 2 of a 20-point goal plays to 30. A quarter of that is less than
+    // one penalty, so the limit is floored at -11: the first mistake (-10)
+    // survives, the second (-25 more) loses the game.
     renderGame({ difficulty: "medium", timerEnabled: false, goalEnabled: true, goalTarget: 20 });
 
-    const answer = solveVisibleQuestion();
-    await user.click(optionButtons().find((b) => Number(b.textContent) !== answer)!);
+    const miss = async () => {
+      const answer = solveVisibleQuestion();
+      await user.click(optionButtons().find((b) => Number(b.textContent) !== answer)!);
+    };
+    await miss();
+    expect(await screen.findAllByText("-10")).not.toHaveLength(0);
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    // Wait for the next question, then miss again.
+    const before = optionButtons().map((b) => b.getAttribute("aria-label")).join();
+    await waitFor(
+      () => expect(optionButtons().map((b) => b.getAttribute("aria-label")).join()).not.toBe(before),
+      { timeout: 4000 },
+    );
+    await miss();
 
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText("Oh no, game over!")).toBeInTheDocument();
