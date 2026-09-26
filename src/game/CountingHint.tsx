@@ -133,7 +133,7 @@ export function CountingHint({ op, a, b }: CountingHintProps) {
 
   return (
     <div className="space-y-3">
-      <div className="rounded-[--radius-lg] bg-muted/50 p-3">
+      <div className="rounded-lg bg-muted/50 p-3">
         <div
           className="flex flex-wrap items-start justify-center gap-4"
           role="img"

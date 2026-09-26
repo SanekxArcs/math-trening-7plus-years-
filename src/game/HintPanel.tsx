@@ -34,7 +34,7 @@ export function HintPanel({ problem, onClose }: HintPanelProps) {
   const { op, a, b, hint } = problem;
 
   return (
-    <div className="space-y-3 rounded-[--radius-lg] border-2 border-primary/15 bg-card/80 p-4 shadow-md">
+    <div className="space-y-3 rounded-lg border-2 border-primary/15 bg-card/80 p-4 shadow-md">
       <header className="flex items-center gap-3">
         <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
           <Lightbulb className="size-5" aria-hidden />
@@ -129,7 +129,7 @@ function GroupsHint({ hint, op }: { hint: HintModel; op: "mul" | "div" }) {
 
   return (
     <div className="space-y-3">
-      <div className="rounded-[--radius-lg] bg-muted/50 p-3">
+      <div className="rounded-lg bg-muted/50 p-3">
         {op === "div" && step !== null ? (
           <ShareHint hint={hint} round={step} />
         ) : (

@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Hand, Heart, Moon, Pause, Play, Plus } from "lucide-react";
+import { Hand, Heart, Moon, PawPrint, Pause, Play, Plus, ShoppingBasket, Sparkles } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   PET_COOLDOWN_MS,
@@ -35,9 +35,18 @@ import { useI18n } from "@/i18n/useI18n";
 import type { TranslationKey } from "@/i18n/translations";
 import { updateStable, useLiveStable, useStable } from "@/game/useStable";
 import { BottomBar } from "@/game/BottomBar";
-import { SessionStats, ghostActionClass } from "@/game/GameDialog";
+import {
+  Backdrop,
+  GameDialog,
+  SessionStats,
+  ghostActionClass,
+  primaryActionClass,
+  secondaryActionClass,
+} from "@/game/GameDialog";
+import { Backdrop as WelcomeBackdrop, fieldClass, labelClass } from "@/game/WelcomeShell";
+import type { MotionStyle } from "motion/react";
 import { readSession } from "@/game/useLocalSession";
-import { CoinCount } from "./CoinCount";
+import { CoinCount, CoinIcon } from "./CoinCount";
 import { PetArt, hasArt } from "./PetArt";
 
 const MOOD_TEXT: Record<Mood, TranslationKey> = {
@@ -129,10 +138,20 @@ export function PetsScreen() {
   });
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col gap-5 px-4 pb-28 pt-5">
-      <header className="flex items-center justify-between gap-3">
-        <h1 className="font-display text-2xl font-black">{t("myPets")}</h1>
-        <CoinCount coins={stable.coins} />
+    <main className="relative mx-auto flex min-h-dvh w-full max-w-xl flex-col gap-4 px-4 pb-28 pt-4">
+      <div className="fixed inset-0 -z-10">
+        <WelcomeBackdrop />
+      </div>
+
+      {/* The twin of the game's HUD: the same frosted panel along the top. */}
+      <header className="sticky top-3 z-30 flex items-center justify-between gap-3 rounded-xl border border-border/70 bg-card/85 py-2 pl-2 pr-3 shadow-[0_12px_32px_-14px_oklch(0.4_0.16_295/0.45)] backdrop-blur-md">
+        <div className="flex items-center gap-2.5">
+          <span className="flex size-10 items-center justify-center rounded-full bg-linear-to-b from-(--option-3) to-[oklch(0.62_0.18_350)] text-white shadow-[0_4px_12px_-4px_var(--option-3)]">
+            <PawPrint className="size-5" aria-hidden />
+          </span>
+          <h1 className="font-display text-2xl font-black">{t("myPets")}</h1>
+        </div>
+        <CoinCount coins={stable.coins} className="text-lg" />
       </header>
 
       {session && <PausedGame score={session.score} />}
@@ -216,21 +235,74 @@ function Adoption() {
   };
 
   return (
-    <form
+    <motion.form
       onSubmit={submit}
-      className="flex flex-col items-center gap-4 rounded-[--radius-xl] bg-card p-8 text-center shadow-lg"
+      initial={{ opacity: 0, y: 20, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ type: "spring", stiffness: 260, damping: 24 }}
+      className="overflow-hidden rounded-xl border border-border/70 bg-card/90 text-center shadow-[0_18px_50px_-20px_oklch(0.4_0.16_295/0.5)] backdrop-blur-md"
     >
-      <PetArt species="horse" mood="happy" animated className="size-44" />
-      <h2 className="font-display text-3xl font-black">{t("nameYourHorse")}</h2>
-      <p className="text-muted-foreground">{t("nameYourHorseBlurb")}</p>
-      <NameField value={name} onChange={setName} placeholder={t("horseNamePlaceholder")} />
-      <button
-        type="submit"
-        className="w-full rounded-[--radius-lg] border-b-8 border-primary/60 bg-primary py-4 font-display text-xl font-black text-primary-foreground shadow-xl focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
-      >
-        {t("adoptHorse")}
-      </button>
-    </form>
+      {/* A meadow for the horse to wait in: the same stage it will live on. */}
+      <Meadow>
+        <motion.div
+          initial={{ y: 30, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 200, damping: 14, delay: 0.2 }}
+          className="relative z-10"
+        >
+          <PetArt species="horse" mood="happy" animated className="size-48" />
+        </motion.div>
+      </Meadow>
+
+      <div className="space-y-4 p-6 pt-5">
+        <div>
+          <h2 className="font-display text-3xl font-black">{t("nameYourHorse")}</h2>
+          <p className="mt-1.5 text-sm text-muted-foreground">{t("nameYourHorseBlurb")}</p>
+        </div>
+        <NameField value={name} onChange={setName} placeholder={t("horseNamePlaceholder")} />
+        <button type="submit" className={primaryActionClass}>
+          <Heart className="size-5" fill="currentColor" aria-hidden />
+          {t("adoptHorse")}
+        </button>
+      </div>
+    </motion.form>
+  );
+}
+
+/** Sky, sun, a drifting cloud and a green hill: the backdrop every pet stands in. */
+function Meadow({ children, night = false, gone = false }: { children: React.ReactNode; night?: boolean; gone?: boolean }) {
+  return (
+    <div
+      className={cn(
+        "relative flex flex-col items-center overflow-hidden px-6 pt-6",
+        night
+          ? "bg-linear-to-b from-indigo-400 via-indigo-300 to-violet-300 dark:from-indigo-950 dark:via-indigo-950 dark:to-violet-950"
+          : gone
+            ? "bg-linear-to-b from-indigo-200 to-violet-100 dark:from-indigo-950 dark:to-violet-950"
+            : "bg-linear-to-b from-sky-300 via-sky-200 to-sky-100 dark:from-sky-900 dark:via-sky-950 dark:to-sky-950",
+      )}
+    >
+      {!night && !gone && (
+        <span className="pointer-events-none absolute inset-0" aria-hidden>
+          <span className="absolute right-6 top-5 size-12 rounded-full bg-[oklch(0.92_0.14_90)] shadow-[0_0_40px_10px_oklch(0.92_0.14_90/0.6)]" />
+          <motion.span
+            className="absolute top-8 h-6 w-20 rounded-full bg-white/80 shadow-[14px_-8px_0_-2px_rgb(255_255_255/0.8),-12px_-4px_0_-4px_rgb(255_255_255/0.8)]"
+            initial={{ left: "-20%" }}
+            animate={{ left: "110%" }}
+            transition={{ duration: 38, repeat: Infinity, ease: "linear" }}
+          />
+        </span>
+      )}
+      {children}
+      {/* The hill the pet stands on. */}
+      <span
+        className={cn(
+          "pointer-events-none absolute -bottom-10 left-1/2 h-24 w-[140%] -translate-x-1/2 rounded-[50%]",
+          night ? "bg-indigo-900/40 dark:bg-indigo-900/60" : gone ? "bg-violet-200/70 dark:bg-violet-900/40" : "bg-lime-300 dark:bg-lime-900",
+        )}
+        aria-hidden
+      />
+    </div>
   );
 }
 
@@ -245,13 +317,13 @@ function NameField({
 }) {
   const { t } = useI18n();
   return (
-    <label className="w-full text-left">
-      <span className="text-sm font-bold text-muted-foreground">{t("petName")}</span>
+    <label className="block w-full space-y-1.5 text-left">
+      <span className={labelClass}>{t("petName")}</span>
       <input
         value={value}
         onChange={(event) => onChange(event.target.value.slice(0, 20))}
         placeholder={placeholder}
-        className="mt-1 w-full rounded-[--radius-lg] border-2 border-input bg-background px-4 py-3 font-display text-xl font-bold focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
+        className={cn(fieldClass, "text-center text-2xl")}
       />
     </label>
   );
@@ -266,35 +338,47 @@ function PetTabs({ stable, active, onAdd }: { stable: Stable; active: Pet; onAdd
   const canAddMore = stable.pets.length < SPECIES_ORDER.length;
 
   return (
-    <nav aria-label={t("myPets")} className="flex gap-2 overflow-x-auto pb-1">
-      {stable.pets.map((pet) => (
-        <button
-          key={pet.id}
-          type="button"
-          onClick={() => updateStable((current) => choose(current, pet.id))}
-          aria-pressed={pet.id === active.id}
-          aria-label={pet.name}
-          className={cn(
-            "relative flex shrink-0 items-center gap-2 rounded-full border-2 py-1.5 pl-2 pr-4 font-display font-bold transition-colors focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none",
-            pet.id === active.id ? "border-primary bg-secondary" : "border-transparent bg-card shadow-sm",
-          )}
-        >
-          <PetArt species={pet.species} className={cn("size-8", !pet.alive && "grayscale")} />
-          <span className="max-w-24 truncate">{pet.name}</span>
-          {needsCare(pet) && (
-            <span className="absolute -right-0.5 -top-0.5 size-3 rounded-full border-2 border-card bg-wrong" />
-          )}
-        </button>
-      ))}
+    <nav aria-label={t("myPets")} className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 pt-1">
+      {stable.pets.map((pet) => {
+        const on = pet.id === active.id;
+        return (
+          <motion.button
+            key={pet.id}
+            type="button"
+            onClick={() => updateStable((current) => choose(current, pet.id))}
+            aria-pressed={on}
+            aria-label={pet.name}
+            whileTap={{ scale: 0.94 }}
+            className={cn(
+              "relative flex shrink-0 items-center gap-2 rounded-full border-b-4 py-1 pl-1 pr-4 font-display font-bold transition-colors focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none",
+              on
+                ? "border-black/20 bg-linear-to-b from-primary to-primary/80 text-primary-foreground shadow-[0_6px_16px_-6px_var(--primary)]"
+                : "border-black/10 bg-card/90 text-foreground shadow-sm backdrop-blur hover:bg-card",
+            )}
+          >
+            <span className="flex size-9 items-center justify-center rounded-full bg-card shadow-inner">
+              <PetArt species={pet.species} className={cn("size-7", !pet.alive && "grayscale")} />
+            </span>
+            <span className="max-w-24 truncate">{pet.name}</span>
+            {needsCare(pet) && (
+              <span className="absolute -right-0.5 -top-0.5 flex size-3.5">
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-wrong opacity-75" />
+                <span className="relative size-3.5 rounded-full border-2 border-card bg-wrong" />
+              </span>
+            )}
+          </motion.button>
+        );
+      })}
       {canAddMore && (
-        <button
+        <motion.button
           type="button"
           onClick={onAdd}
-          className="flex shrink-0 items-center gap-1.5 rounded-full border-2 border-dashed border-border px-4 py-1.5 font-display font-bold text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
+          whileTap={{ scale: 0.94 }}
+          className="flex shrink-0 items-center gap-1.5 rounded-full border-2 border-dashed border-primary/40 bg-card/60 px-4 py-2 font-display font-bold text-primary backdrop-blur transition-colors hover:bg-card focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
         >
-          <Plus className="size-4" aria-hidden />
+          <Plus className="size-4" strokeWidth={3} aria-hidden />
           {t("newPet")}
-        </button>
+        </motion.button>
       )}
     </nav>
   );
@@ -314,81 +398,81 @@ function AdoptDialog({ stable, onClose }: { stable: Stable; onClose: () => void 
   };
 
   return (
-    <Overlay>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={t("adoptTitle")}
-        className="max-h-[90dvh] w-full max-w-sm overflow-y-auto rounded-[--radius-xl] bg-card p-6 text-center shadow-2xl"
+    <Backdrop>
+      <GameDialog
+        hero={
+          picked ? (
+            <motion.span key={picked} initial={{ scale: 0.4 }} animate={{ scale: 1 }} className="flex">
+              <PetArt species={picked} animated className="size-18" />
+            </motion.span>
+          ) : (
+            <PawPrint className="size-10" aria-hidden />
+          )
+        }
       >
         <h2 className="font-display text-2xl font-black">{t("adoptTitle")}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{t("adoptBlurb")}</p>
 
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          {choices.map((species) => {
+        <div className="mt-5 grid grid-cols-2 gap-x-2.5 gap-y-3.5">
+          {choices.map((species, index) => {
             const info = SPECIES[species];
             const short = info.price - stable.coins;
             const affordable = whyNotAdopt(stable, species) === null;
+            const on = picked === species;
             return (
-              <button
+              <motion.button
                 key={species}
                 type="button"
                 onClick={() => setPicked(species)}
                 disabled={!affordable}
-                aria-pressed={picked === species}
+                aria-pressed={on}
+                data-state={!affordable ? "dim" : undefined}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0, scale: on ? 1.04 : 1 }}
+                transition={{ delay: index * 0.05 }}
                 className={cn(
-                  "flex flex-col items-center gap-1 rounded-[--radius-lg] border-2 p-3 transition-colors disabled:opacity-50 focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none",
-                  picked === species ? "border-primary bg-secondary" : "border-border bg-background",
+                  "answer-tile flex flex-col items-center gap-1 p-3 disabled:cursor-default",
+                  on && "outline-4 outline-offset-2 outline-primary",
                 )}
+                style={{ "--tile": `var(--option-${index % 6})` } as MotionStyle}
               >
-                <PetArt species={species} className="size-16" />
-                <span className="font-bold">{t(SPECIES_NAME[species])}</span>
-                <span className="font-display text-sm font-black tabular-nums text-combo-foreground">
-                  {affordable ? `🪙 ${info.price}` : `🪙 ${t("needMore", { coins: short })}`}
+                <PetArt species={species} className="relative size-14" />
+                <span className="relative text-sm font-black text-foreground">{t(SPECIES_NAME[species])}</span>
+                <span className="relative flex items-center gap-1 rounded-full bg-card/80 px-2 py-0.5 font-display text-xs font-black tabular-nums text-foreground">
+                  <CoinIcon className="size-3.5" />
+                  {affordable ? info.price : t("needMore", { coins: short })}
                 </span>
-              </button>
+              </motion.button>
             );
           })}
         </div>
 
-        {picked && (
-          <div className="mt-4">
-            <NameField value={name} onChange={setName} placeholder={t(DEFAULT_NAME[picked])} />
-          </div>
-        )}
+        <AnimatePresence>
+          {picked && (
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mt-4 overflow-hidden">
+              <NameField value={name} onChange={setName} placeholder={t(DEFAULT_NAME[picked])} />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        <button
-          type="button"
-          onClick={confirm}
-          disabled={!picked}
-          className="mt-5 w-full rounded-[--radius-lg] border-b-8 border-primary/60 bg-primary py-4 font-display text-lg font-black text-primary-foreground shadow-xl disabled:opacity-40 focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
-        >
+        <button type="button" onClick={confirm} disabled={!picked} className={cn(primaryActionClass, "mt-5 disabled:opacity-40")}>
           {picked ? t("adoptFor", { price: SPECIES[picked].price }) : t("pickAPet")}
         </button>
-        <button
-          type="button"
-          onClick={onClose}
-          className="mt-2 w-full rounded-[--radius-lg] py-3 font-display font-bold text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
-        >
+        <button type="button" onClick={onClose} className={cn(ghostActionClass, "mt-1")}>
           {t("cancel")}
         </button>
-      </div>
-    </Overlay>
+      </GameDialog>
+    </Backdrop>
   );
 }
 
-function Overlay({ children }: { children: React.ReactNode }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 p-6 backdrop-blur-sm"
-    >
-      {children}
-    </motion.div>
-  );
-}
+/** A hue per kind of item, from the answer-tile palette. */
+const KIND_HUE: Record<ItemKind, string> = {
+  food: "var(--option-1)",
+  play: "var(--option-3)",
+  care: "var(--option-0)",
+  vet: "var(--option-4)",
+};
 
 function Stall({ stable, pet }: { stable: Stable; pet: Pet }) {
   const { t } = useI18n();
@@ -425,104 +509,118 @@ function Stall({ stable, pet }: { stable: Stable; pet: Pet }) {
   const petMinutes = Math.ceil((pet.lastPettedAt + PET_COOLDOWN_MS - now) / 60_000);
   const items = itemsFor(pet.species);
   const vacation = onVacation(stable);
+  const worried = mood === "sick" || mood === "gone" || mood === "hungry" || mood === "dirty" || mood === "sad";
 
   return (
     <>
-      <section
-        className={cn(
-          "relative flex flex-col items-center overflow-hidden rounded-[--radius-xl] p-6 shadow-lg",
-          asleep
-            ? "bg-linear-to-b from-indigo-300 via-indigo-200 to-violet-200 dark:from-indigo-950 dark:via-indigo-950 dark:to-violet-950"
-            : pet.alive
-            ? "bg-gradient-to-b from-sky-200 via-sky-100 to-lime-200 dark:from-sky-900 dark:via-sky-950 dark:to-lime-950"
-            : "bg-gradient-to-b from-indigo-200 to-violet-100 dark:from-indigo-950 dark:to-violet-950",
-        )}
+      <motion.section
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="overflow-hidden rounded-xl border border-border/70 bg-card/90 shadow-[0_18px_50px_-20px_oklch(0.4_0.16_295/0.5)] backdrop-blur-md"
       >
-        {asleep && <NightSky />}
-        <PetFigure pet={pet} mood={mood} onPet={petReady && !asleep ? pat : undefined} />
+        <Meadow night={asleep} gone={!pet.alive}>
+          {asleep && <NightSky />}
+          <div className="relative z-10">
+            <PetFigure pet={pet} mood={mood} onPet={petReady && !asleep ? pat : undefined} />
+          </div>
 
-        <AnimatePresence>
-          {reaction && (
-            <motion.span
-              key={reaction.id}
-              initial={{ opacity: 1, y: 0, scale: 0.8 }}
-              animate={{ opacity: 0, y: -90, scale: 1.6 }}
-              transition={{ duration: 1.1 }}
-              onAnimationComplete={() => setReaction(null)}
-              className="pointer-events-none absolute top-1/3 text-5xl"
-              aria-hidden
-            >
-              {reaction.emoji}
-            </motion.span>
-          )}
-        </AnimatePresence>
+          <AnimatePresence>
+            {reaction && (
+              <motion.span
+                key={reaction.id}
+                initial={{ opacity: 1, y: 0, scale: 0.8 }}
+                animate={{ opacity: 0, y: -90, scale: 1.6 }}
+                transition={{ duration: 1.1 }}
+                onAnimationComplete={() => setReaction(null)}
+                className="pointer-events-none absolute top-1/3 z-20 text-5xl"
+                aria-hidden
+              >
+                {reaction.emoji}
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </Meadow>
 
-        {/* The grown-up switch hides behind a long press on the name: findable
-            by someone who was told where it is, not by a child tapping around. */}
-        <h2
-          className="mt-2 select-none font-display text-3xl font-black text-foreground"
-          onPointerDown={startPress}
-          onPointerUp={endPress}
-          onPointerLeave={endPress}
-          onPointerCancel={endPress}
-          onContextMenu={(event) => event.preventDefault()}
-        >
-          {pet.name}
-        </h2>
-        <p
-          className={cn(
-            "mt-1 text-center font-bold",
-            mood === "sick" || mood === "gone" ? "text-wrong" : "text-foreground/80",
-          )}
-          role="status"
-        >
-          {t(MOOD_TEXT[mood], { name: pet.name })}
-        </p>
-      </section>
+        <div className="px-5 pb-5 pt-3 text-center">
+          {/* The grown-up switch hides behind a long press on the name: findable
+              by someone who was told where it is, not by a child tapping around. */}
+          <h2
+            className="select-none font-display text-3xl font-black text-foreground"
+            onPointerDown={startPress}
+            onPointerUp={endPress}
+            onPointerLeave={endPress}
+            onPointerCancel={endPress}
+            onContextMenu={(event) => event.preventDefault()}
+          >
+            {pet.name}
+          </h2>
+          {/* What the pet would say, in a speech bubble — urgent ones in red. */}
+          <motion.p
+            key={mood}
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className={cn(
+              "relative mx-auto mt-2 inline-block rounded-2xl px-4 py-2 text-sm font-bold",
+              worried ? "bg-wrong/10 text-wrong" : "bg-secondary text-secondary-foreground",
+            )}
+            role="status"
+          >
+            {t(MOOD_TEXT[mood], { name: pet.name })}
+          </motion.p>
+        </div>
+      </motion.section>
 
       {pet.alive ? (
         // `disabled` on a fieldset reaches every button inside: all the care
         // waits until a solved sum wakes the pet.
         <fieldset disabled={asleep} className={cn("contents", asleep && "[&_button]:opacity-50")}>
-          <section className="grid grid-cols-2 gap-3">
-            {STATS.map(({ stat, emoji, label }) => (
-              <StatBar key={stat} emoji={emoji} label={t(label)} value={pet[stat]} />
-            ))}
+          <section className="rounded-xl border border-border/70 bg-card/90 p-4 shadow-[0_12px_32px_-18px_oklch(0.4_0.16_295/0.45)] backdrop-blur-md">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+              {STATS.map(({ stat, emoji, label }) => (
+                <StatBar key={stat} emoji={emoji} label={t(label)} value={pet[stat]} />
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={pat}
+              disabled={!petReady}
+              className={cn(secondaryActionClass, "mt-4 py-2.5 text-base disabled:opacity-60")}
+            >
+              <Hand className="size-5" aria-hidden />
+              {t("petHorse")}
+              {!petReady && (
+                <span className="text-sm font-bold text-muted-foreground">· {t("petAgainIn", { minutes: petMinutes })}</span>
+              )}
+            </button>
           </section>
 
-          <button
-            type="button"
-            onClick={pat}
-            disabled={!petReady}
-            className="flex items-center justify-center gap-2 rounded-full bg-card px-5 py-3 font-display font-bold shadow-md transition-colors enabled:hover:bg-accent disabled:text-muted-foreground focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
-          >
-            <Hand className="size-5" aria-hidden />
-            {t("petHorse")}
-            {!petReady && (
-              <span className="text-sm font-bold">· {t("petAgainIn", { minutes: petMinutes })}</span>
-            )}
-          </button>
-
-          {KINDS.map(({ kind, label }) => (
-            <section key={kind}>
-              <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                {t(label)}
-              </h3>
-              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
-                {items
-                  .filter((item) => item.kind === kind)
-                  .map((item) => (
-                    <ItemButton
-                      key={item.id}
-                      item={item}
-                      refusal={whyNot(stable, pet.id, item)}
-                      coins={stable.coins}
-                      onUse={() => use(item)}
-                    />
-                  ))}
+          <section className="space-y-4 rounded-xl border border-border/70 bg-card/90 p-4 shadow-[0_12px_32px_-18px_oklch(0.4_0.16_295/0.45)] backdrop-blur-md">
+            <div className="flex items-center gap-2">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-linear-to-b from-combo to-[oklch(0.7_0.19_50)] text-combo-foreground">
+                <ShoppingBasket className="size-4" aria-hidden />
+              </span>
+              <h3 className="font-display text-lg font-black">{t("shopTitle")}</h3>
+            </div>
+            {KINDS.map(({ kind, label }) => (
+              <div key={kind}>
+                <h4 className="mb-2 text-xs font-black uppercase tracking-widest text-muted-foreground">{t(label)}</h4>
+                <div className="grid grid-cols-3 gap-x-2.5 gap-y-3.5 sm:grid-cols-4">
+                  {items
+                    .filter((item) => item.kind === kind)
+                    .map((item) => (
+                      <ItemButton
+                        key={item.id}
+                        item={item}
+                        hue={KIND_HUE[kind]}
+                        refusal={whyNot(stable, pet.id, item)}
+                        coins={stable.coins}
+                        onUse={() => use(item)}
+                      />
+                    ))}
+                </div>
               </div>
-            </section>
-          ))}
+            ))}
+          </section>
         </fieldset>
       ) : (
         <Revive pet={pet} coins={stable.coins} />
@@ -530,16 +628,9 @@ function Stall({ stable, pet }: { stable: Stable; pet: Pet }) {
 
       <AnimatePresence>
         {grownUpOpen && (
-          <Overlay>
-            <div
-              role="dialog"
-              aria-modal="true"
-              className="w-full max-w-sm rounded-[--radius-xl] bg-card p-8 text-center shadow-2xl"
-            >
-              <span className="text-6xl" aria-hidden>
-                🏖️
-              </span>
-              <h2 className="mt-3 font-display text-2xl font-black">{t("vacationTitle")}</h2>
+          <Backdrop>
+            <GameDialog hero={<span className="text-5xl leading-none">🏖️</span>}>
+              <h2 className="font-display text-2xl font-black">{t("vacationTitle")}</h2>
               <p className="mt-2 text-sm text-muted-foreground">{t("vacationBlurb")}</p>
               <button
                 type="button"
@@ -547,32 +638,31 @@ function Stall({ stable, pet }: { stable: Stable; pet: Pet }) {
                   updateStable((current) => setVacation(current, !vacation, Date.now()));
                   setGrownUpOpen(false);
                 }}
-                className="mt-6 w-full rounded-[--radius-lg] border-b-8 border-primary/60 bg-primary py-4 font-display text-lg font-black text-primary-foreground shadow-xl focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
+                className={cn(primaryActionClass, "mt-6")}
               >
                 {vacation ? t("vacationOff") : t("vacationOn")}
               </button>
-              <button
-                type="button"
-                onClick={() => setGrownUpOpen(false)}
-                className="mt-3 w-full rounded-[--radius-lg] py-3 font-display font-bold text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
-              >
+              <button type="button" onClick={() => setGrownUpOpen(false)} className={cn(ghostActionClass, "mt-1")}>
                 {t("cancel")}
               </button>
-            </div>
-          </Overlay>
+            </GameDialog>
+          </Backdrop>
         )}
       </AnimatePresence>
     </>
   );
 }
 
+/** A shop item, as a candy tile in its kind's colour, with its price on a coin. */
 function ItemButton({
   item,
+  hue,
   refusal,
   coins,
   onUse,
 }: {
   item: ShopItem;
+  hue: string;
   refusal: ReturnType<typeof whyNot>;
   coins: number;
   onUse: () => void;
@@ -580,25 +670,34 @@ function ItemButton({
   const { t } = useI18n();
   const name = t(ITEM_NAME[item.id] ?? "itemHay");
   return (
-    <button
+    <motion.button
       type="button"
       onClick={onUse}
       disabled={refusal !== null}
       aria-label={t("buyItem", { item: name, price: item.price })}
-      className="flex flex-col items-center gap-1 rounded-[--radius-lg] border-b-4 border-black/10 bg-card p-3 shadow-md transition-transform enabled:active:translate-y-0.5 disabled:opacity-50 focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
+      data-state={refusal !== null ? "dim" : undefined}
+      whileTap={refusal === null ? { scale: 0.92, rotate: -3 } : {}}
+      className="answer-tile flex flex-col items-center gap-1 px-1.5 pb-2 pt-2.5 disabled:cursor-default"
+      style={{ "--tile": hue } as MotionStyle}
     >
-      <span className="text-4xl" aria-hidden>
+      <span className="relative text-4xl leading-none drop-shadow-sm" aria-hidden>
         {item.emoji}
       </span>
-      <span className="text-sm font-bold leading-tight">{name}</span>
-      <span className="font-display text-sm font-black tabular-nums text-combo-foreground">
-        {refusal === "full"
-          ? t("itemFull")
-          : refusal === "coins"
-            ? `🪙 ${t("needMore", { coins: item.price - coins })}`
-            : `🪙 ${item.price}`}
+      <span className="relative text-xs font-bold leading-tight text-foreground">{name}</span>
+      <span className="relative flex items-center gap-1 rounded-full bg-card/85 px-2 py-0.5 font-display text-xs font-black tabular-nums text-foreground">
+        {refusal === "full" ? (
+          <>
+            <Sparkles className="size-3 text-correct" aria-hidden />
+            {t("itemFull")}
+          </>
+        ) : (
+          <>
+            <CoinIcon className="size-3.5" />
+            {refusal === "coins" ? t("needMore", { coins: item.price - coins }) : item.price}
+          </>
+        )}
       </span>
-    </button>
+    </motion.button>
   );
 }
 
@@ -694,18 +793,20 @@ function NightSky() {
   );
 }
 
+/** One need, as a glossy bar like the game's goal bar: green, then amber, then red. */
 function StatBar({ emoji, label, value }: { emoji: string; label: string; value: number }) {
   const shown = Math.round(value);
+  const tone = value < 25 ? "bg-wrong" : value < 50 ? "bg-combo" : "bg-correct";
   return (
-    <div className="rounded-[--radius-lg] bg-card p-3 shadow-sm">
-      <div className="mb-1.5 flex items-center justify-between text-sm font-bold">
-        <span>
+    <div>
+      <div className="mb-1 flex items-center justify-between gap-2 text-sm font-bold">
+        <span className="flex items-center gap-1.5">
           <span aria-hidden>{emoji}</span> {label}
         </span>
-        <span className="tabular-nums text-muted-foreground">{shown}%</span>
+        <span className={cn("tabular-nums", value < 25 ? "text-wrong" : "text-muted-foreground")}>{shown}%</span>
       </div>
       <div
-        className="h-3 w-full overflow-hidden rounded-full bg-muted"
+        className="relative h-3.5 w-full overflow-hidden rounded-full bg-muted shadow-[inset_0_1px_3px_oklch(0_0_0/0.14)]"
         role="progressbar"
         aria-label={label}
         aria-valuenow={shown}
@@ -713,43 +814,58 @@ function StatBar({ emoji, label, value }: { emoji: string; label: string; value:
         aria-valuemax={100}
       >
         <motion.div
-          className={cn(
-            "h-full rounded-full",
-            value < 25 ? "bg-wrong" : value < 50 ? "bg-combo" : "bg-correct",
-          )}
+          className={cn("relative h-full overflow-hidden rounded-full transition-colors duration-500", tone, value < 25 && "animate-pulse")}
+          initial={false}
           animate={{ width: `${value}%` }}
           transition={{ type: "spring", stiffness: 160, damping: 24 }}
-        />
+        >
+          <span className="absolute inset-x-1.5 top-0.5 h-1 rounded-full bg-white/40" aria-hidden />
+        </motion.div>
       </div>
     </div>
   );
 }
 
+/** A pet that is gone, and the savings bar that brings them back. */
 function Revive({ pet, coins }: { pet: Pet; coins: number }) {
   const { t } = useI18n();
   const ready = coins >= REVIVE_PRICE;
+  const fraction = Math.min(1, coins / REVIVE_PRICE);
   return (
-    <section className="flex flex-col items-center gap-4 rounded-[--radius-xl] bg-card p-6 text-center shadow-lg">
-      <Heart className="size-10 text-wrong" aria-hidden />
+    <motion.section
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex flex-col items-center gap-4 rounded-xl border border-border/70 bg-card/90 p-5 text-center shadow-[0_12px_32px_-18px_oklch(0.4_0.16_295/0.45)] backdrop-blur-md"
+    >
+      <motion.span
+        animate={{ scale: [1, 1.12, 1] }}
+        transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+        className="flex size-14 items-center justify-center rounded-full bg-linear-to-b from-wrong to-[oklch(0.5_0.2_15)] text-white shadow-[0_8px_20px_-8px_var(--wrong)]"
+      >
+        <Heart className="size-7" fill="currentColor" aria-hidden />
+      </motion.span>
       <p className="font-bold">{t("reviveBlurb", { price: REVIVE_PRICE, name: pet.name })}</p>
-      <div className="h-4 w-full overflow-hidden rounded-full bg-muted">
+      <div className="relative h-4 w-full overflow-hidden rounded-full bg-muted shadow-[inset_0_1px_3px_oklch(0_0_0/0.14)]">
         <motion.div
-          className="h-full rounded-full bg-combo"
-          animate={{ width: `${Math.min(100, (coins / REVIVE_PRICE) * 100)}%` }}
+          className="hud-sheen relative h-full overflow-hidden rounded-full bg-linear-to-r from-combo to-[oklch(0.72_0.19_50)]"
+          initial={false}
+          animate={{ width: `${fraction * 100}%` }}
         />
       </div>
-      <p className="font-display text-lg font-black tabular-nums">
-        🪙 {Math.min(coins, REVIVE_PRICE)} / {REVIVE_PRICE}
+      <p className="flex items-center gap-1.5 font-display text-lg font-black tabular-nums">
+        <CoinIcon className="size-6" />
+        {Math.min(coins, REVIVE_PRICE)} / {REVIVE_PRICE}
       </p>
       {ready && (
         <button
           type="button"
           onClick={() => updateStable((stable) => revive(stable, pet.id, Date.now()))}
-          className="w-full rounded-[--radius-lg] border-b-8 border-primary/60 bg-primary py-4 font-display text-xl font-black text-primary-foreground shadow-xl focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-none"
+          className={primaryActionClass}
         >
+          <Heart className="size-5" fill="currentColor" aria-hidden />
           {t("revive", { name: pet.name })} · 🪙 {REVIVE_PRICE}
         </button>
       )}
-    </section>
+    </motion.section>
   );
 }

@@ -72,6 +72,7 @@ const en = {
   keepPlaying: "Keep playing",
   finishSession: "Finish for now",
   sessionOver: "Nice work!",
+  shopTitle: "Shop",
   // Pairing by QR code
   scanQr: "Scan QR code",
   scanQrHint: "Point the camera at the QR code on the other device.",
@@ -438,6 +439,7 @@ const pl: Record<TranslationKey, string> = {
   keepPlaying: "Graj dalej",
   finishSession: "Zakończ na dziś",
   sessionOver: "Dobra robota!",
+  shopTitle: "Sklepik",
   // Pairing by QR code
   scanQr: "Zeskanuj kod QR",
   scanQrHint: "Skieruj aparat na kod QR na drugim urządzeniu.",
@@ -795,6 +797,7 @@ const uk: Record<TranslationKey, string> = {
   keepPlaying: "Грати далі",
   finishSession: "Завершити на сьогодні",
   sessionOver: "Гарна робота!",
+  shopTitle: "Крамничка",
   // Pairing by QR code
   scanQr: "Сканувати QR-код",
   scanQrHint: "Наведіть камеру на QR-код на іншому пристрої.",
