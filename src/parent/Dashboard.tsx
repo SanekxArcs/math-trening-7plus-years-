@@ -142,8 +142,9 @@ export function Dashboard({ session, device, onLogout }: DashboardProps) {
           profile={profile}
           level={progress?.level ?? 1}
           coins={progress?.coins ?? null}
-          streakDays={stats.streakDays}
-          lastPlayedAt={stats.lastPlayedAt}
+          // `??` for a server not yet redeployed with these fields: nothing, not NaN.
+          streakDays={stats.streakDays ?? 0}
+          lastPlayedAt={stats.lastPlayedAt ?? null}
         />
 
         <TabsPrimitive.Root value={tab} onValueChange={(value) => setTab(value as Tab)}>

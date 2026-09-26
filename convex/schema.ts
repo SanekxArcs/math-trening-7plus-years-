@@ -136,6 +136,13 @@ export default defineSchema({
     updatedBy: v.union(v.literal("parent"), v.literal("device")),
   }).index("by_profile", ["profileId"]),
 
+  /** Admin page sessions, opened with the ADMIN_PASSWORD environment variable. */
+  adminSessions: defineTable({
+    tokenHash: v.string(),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+  }).index("by_tokenHash", ["tokenHash"]),
+
   /** Parent dashboard sessions. Short-lived, revocable, one row per login. */
   parentSessions: defineTable({
     profileId: v.id("profiles"),
@@ -177,7 +184,9 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_client", ["profileId", "clientId"])
-    .index("by_profile_created", ["profileId", "createdAt"]),
+    .index("by_profile_created", ["profileId", "createdAt"])
+    // Everyone's answers in time order, for the admin page's activity.
+    .index("by_created", ["createdAt"]),
 
   /**
    * One row per table cell per difficulty — `mul:7:8:medium`.

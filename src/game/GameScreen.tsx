@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Eye, Flag, HeartCrack, Moon, Pause, Play, Settings2, Sun, Trophy } from "lucide-react";
+import { CircleHelp, Eye, Flag, HeartCrack, Moon, Pause, Play, Settings2, Sun, Trophy } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   displayPoints,
@@ -35,6 +35,7 @@ import { useLocalSession } from "./useLocalSession";
 import { useLocalLevel } from "./useLocalLevel";
 import { BottomBar, dockIconClass } from "./BottomBar";
 import { PetArt } from "@/pets/PetArt";
+import { Onboarding, hasOnboarded, markOnboarded } from "@/onboarding/Onboarding";
 import { CoinIcon } from "@/pets/CoinCount";
 import {
   Backdrop,
@@ -247,6 +248,21 @@ export function GameScreen({
     if (state.pausedBy.includes("away")) game.pause();
   }, [state.pausedBy, game.pause]);
 
+  /**
+   * How to play: shown by itself the first time, and from the "?" in the dock
+   * whenever the child wants it again. The clock stops while it is open — a
+   * countdown running behind a picture book would be a trap.
+   */
+  const [touring, setTouring] = useState(() => !hasOnboarded());
+  useEffect(() => {
+    if (touring) game.pause();
+  }, [touring, game.pause]);
+  const endTour = useCallback(() => {
+    markOnboarded();
+    setTouring(false);
+    game.resume();
+  }, [game.resume]);
+
   const canShowHint = settings.visualHintEnabled && hasPictureHint(problem);
   const hintOpen = canShowHint && hintFor === state.questionId;
   const halfHalfOn = settings.halfHalfEnabled && state.question.mode === "choice";
@@ -378,7 +394,7 @@ export function GameScreen({
           screen. A child who comes back to the tablet is never dropped
           straight into a running countdown they have not looked at yet. */}
       <AnimatePresence>
-        {state.paused && state.phase !== "finished" && (
+        {state.paused && state.phase !== "finished" && !touring && (
           <Backdrop>
             <GameDialog hero={<Pause className="size-10" fill="currentColor" strokeWidth={0} aria-hidden />}>
               <DialogTitle>{t("paused")}</DialogTitle>
@@ -528,16 +544,25 @@ export function GameScreen({
         )}
       </AnimatePresence>
 
+      <AnimatePresence>{touring && <Onboarding settings={settings} onDone={endTour} />}</AnimatePresence>
+
       <BottomBar className="grid-cols-[1fr_auto_auto_auto_1fr] gap-2 sm:gap-3">
         {/* The grown-up corners: small and quiet, one at each end, well away
             from the buttons a child is meant to use. */}
-        <Link
-          to="/parent"
-          aria-label={t("parentDashboard")}
-          className={cn(dockIconClass, "justify-self-start bg-muted/70")}
-        >
-          <Settings2 className="size-5" aria-hidden />
-        </Link>
+        <div className="flex items-center gap-0.5 justify-self-start rounded-full bg-muted/70 p-0.5">
+          <button
+            type="button"
+            onClick={() => setTouring(true)}
+            aria-label={t("howToPlay")}
+            title={t("howToPlay")}
+            className={dockIconClass}
+          >
+            <CircleHelp className="size-5" aria-hidden />
+          </button>
+          <Link to="/parent" aria-label={t("parentDashboard")} className={dockIconClass}>
+            <Settings2 className="size-5" aria-hidden />
+          </Link>
+        </div>
 
         {/* The lifelines flank the centre button. A slot is kept even when one
             is switched off, so the centre stays dead centre; one that is on but

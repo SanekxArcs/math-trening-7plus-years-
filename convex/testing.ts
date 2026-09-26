@@ -65,6 +65,14 @@ export const purgeProfile = internalMutation({
       .collect();
     for (const attempt of attempts) await ctx.db.delete(attempt._id);
 
+    // The per-fact tables were left behind before; the admin page's delete
+    // clears them too, so both ways out remove the same things.
+    const facts = await ctx.db
+      .query("factStats")
+      .withIndex("by_profile_fact", (q) => q.eq("profileId", profile._id))
+      .collect();
+    for (const fact of facts) await ctx.db.delete(fact._id);
+
     const sessions = await ctx.db
       .query("parentSessions")
       .withIndex("by_profile", (q) => q.eq("profileId", profile._id))

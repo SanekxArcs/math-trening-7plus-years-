@@ -5,6 +5,12 @@ import {
   BarChart3,
   CalendarDays,
   Check,
+  CircleUserRound,
+  History,
+  LayoutDashboard,
+  PartyPopper,
+  SlidersHorizontal,
+  Table2,
   Clock,
   Flame,
   HeartPulse,
@@ -68,7 +74,7 @@ export function Overview({
     daily: stats.daily,
     byOperation: stats.byOperation,
     averageMs: stats.averageMs,
-    lastPlayedAt: stats.lastPlayedAt,
+    lastPlayedAt: stats.lastPlayedAt ?? null,
     settings,
     now,
   });
@@ -79,6 +85,7 @@ export function Overview({
 
   return (
     <div className="space-y-4">
+      <Welcome />
       <Panel>
         <PanelTitle icon={CalendarDays} title={t("thisWeek")} hint={t("vsLastWeek")} />
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
@@ -174,6 +181,60 @@ export function Overview({
         )}
       </Panel>
     </div>
+  );
+}
+
+const WELCOMED = "math_master_parent_welcomed";
+
+/**
+ * The parent's walkthrough: a card, once, saying what each tab is for. Short
+ * enough to read in passing, gone for good after "Got it".
+ */
+function Welcome() {
+  const { t } = useI18n();
+  const [shown, setShown] = useState(() => {
+    try {
+      return localStorage.getItem(WELCOMED) === null;
+    } catch {
+      return false;
+    }
+  });
+  if (!shown) return null;
+
+  const rows = [
+    { icon: LayoutDashboard, text: t("pwOverview") },
+    { icon: Table2, text: t("pwTables") },
+    { icon: History, text: t("pwHistory") },
+    { icon: SlidersHorizontal, text: t("pwSettings") },
+    { icon: CircleUserRound, text: t("pwAccount") },
+  ];
+
+  return (
+    <Panel className="bg-linear-to-br from-combo/15 via-card/90 to-card/90">
+      <PanelTitle icon={PartyPopper} title={t("pwTitle")} hint={t("pwBody")} hue="var(--combo)" />
+      <ul className="space-y-2">
+        {rows.map(({ icon: Icon, text }) => (
+          <li key={text} className="flex items-start gap-2.5 text-sm">
+            <Icon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+            <span>{text}</span>
+          </li>
+        ))}
+      </ul>
+      <button
+        type="button"
+        onClick={() => {
+          try {
+            localStorage.setItem(WELCOMED, "1");
+          } catch {
+            /* private mode */
+          }
+          setShown(false);
+        }}
+        className="mt-4 rounded-full bg-primary px-5 py-2 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/90"
+      >
+        {t("gotIt")}
+      </button>
+    </Panel>
   );
 }
 

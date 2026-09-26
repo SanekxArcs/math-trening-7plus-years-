@@ -109,6 +109,7 @@ describe("translate", () => {
       a: 18,
       b: 19,
       op: "Adding",
+      step: 20,
     };
     for (const lang of LANGS) {
       for (const key of KEYS) {

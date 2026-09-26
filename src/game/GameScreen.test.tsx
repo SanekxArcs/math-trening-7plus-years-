@@ -12,6 +12,8 @@ function renderGame(overrides: Partial<GameSettings> = {}, entry: InitialEntry =
   // Pin the language so the assertions below are about behaviour, not about
   // whichever locale the test environment happens to report.
   localStorage.setItem("math_master_lang", "en");
+  // Past the first-visit walkthrough, unless a test is about it.
+  if (localStorage.getItem("math_master_onboarded") === null) localStorage.setItem("math_master_onboarded", "1");
   return render(
     <I18nProvider>
       <MemoryRouter initialEntries={[entry]}>
@@ -256,6 +258,30 @@ describe("GameScreen", () => {
     await finishForToday(user);
     expect(await screen.findByText("Nice work!")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Play again" })).toBeInTheDocument();
+  });
+
+  it("shows how to play on the first visit, with the clock stopped, and again from the ? button", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("math_master_onboarded", "never");
+    renderGame({ timerEnabled: false, goalEnabled: false });
+
+    const tour = await screen.findByRole("dialog", { name: "How to play" });
+    expect(tour).toHaveTextContent("Welcome to Math Master!");
+    // Behind the walkthrough the game waits: no pause card on top of it, either.
+    expect(screen.queryByText("Paused")).toBeNull();
+
+    await user.click(within(tour).getByRole("button", { name: /Next/ }));
+    expect(await within(tour).findByText("Tap the right answer")).toBeInTheDocument();
+
+    await user.click(within(tour).getByRole("button", { name: /Skip/ }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(localStorage.getItem("math_master_onboarded")).toBe("1");
+    // Playable straight away: the tour's pause is lifted with it.
+    await user.click(screen.getByRole("button", { name: `Answer ${solveVisibleQuestion()}` }));
+    expect(await screen.findByText("+10")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "How to play" }));
+    expect(await screen.findByRole("dialog", { name: "How to play" })).toBeInTheDocument();
   });
 
   it("pauses by going to see the pets", async () => {

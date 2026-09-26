@@ -13,6 +13,10 @@ import { PairLanding } from "@/pair/PairLanding";
  * service worker's precache, which downloads it to the device whether it is
  * ever used or not.
  */
+const AdminRoute = lazy(() =>
+  import("@/admin/AdminRoute").then((module) => ({ default: module.AdminRoute })),
+);
+
 const ParentRoute = lazy(() =>
   import("@/parent/ParentRoute").then((module) => ({ default: module.ParentRoute })),
 );
@@ -24,6 +28,15 @@ export default function App() {
       {/* Eager, unlike the dashboard: the child opens it every day. */}
       <Route path="/pets" element={<PlayRoute view="pets" />} />
       <Route path="/horse" element={<Navigate to="/pets" replace />} />
+      {/* The owner's page, loaded on demand like the dashboard. */}
+      <Route
+        path="/admin"
+        element={
+          <Suspense fallback={<Loading />}>
+            <AdminRoute />
+          </Suspense>
+        }
+      />
       {/* Where a scanned pairing QR code opens. */}
       <Route path="/pair" element={<PairLanding />} />
       <Route

@@ -132,6 +132,33 @@ export const parentLogin = action({
   },
 });
 
+/** Admin sessions last a working day, like the parents'. */
+const ADMIN_SESSION_MS = 1000 * 60 * 60 * 12;
+/** Anything shorter is too easy to guess for the key to every child's data. */
+const ADMIN_PASSWORD_MIN = 12;
+
+/**
+ * The owner's way in. The password lives only in the Convex environment
+ * (`npx convex env set ADMIN_PASSWORD …`), never in the app bundle, so the
+ * page can be public without the power behind it being.
+ */
+export const adminLogin = action({
+  args: { password: v.string() },
+  handler: async (ctx, { password }): Promise<{ token: string; expiresAt: number }> => {
+    const expected = process.env.ADMIN_PASSWORD ?? "";
+    if (expected.length < ADMIN_PASSWORD_MIN) throw new ConvexError("ADMIN_NOT_SET_UP");
+    // A pause on every attempt, right or wrong: guessing gets slow.
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    // Compared as hashes, so the comparison runs over equal-length strings.
+    if (!safeEqual(sha256(password), sha256(expected))) throw new ConvexError("ADMIN_WRONG");
+
+    const token = generateToken();
+    const expiresAt = Date.now() + ADMIN_SESSION_MS;
+    await ctx.runMutation(internal.admin.openSession, { tokenHash: sha256(token), expiresAt });
+    return { token, expiresAt };
+  },
+});
+
 /**
  * A new PIN, from inside the dashboard. The current PIN is asked for again
  * even though the parent is signed in: a dashboard left open on a shared
