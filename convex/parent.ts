@@ -1,5 +1,5 @@
 import { ConvexError, v } from "convex/values";
-import { internalMutation, mutation, query } from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { requireParent } from "./auth";
 import { settingsPatchFields } from "./schema";
 import { sha256 } from "./sha256.js";
@@ -50,6 +50,11 @@ export const overview = query({
       .withIndex("by_profile_created", (q) => q.eq("profileId", profile._id))
       .order("desc")
       .take(500);
+
+    const progress = await ctx.db
+      .query("progress")
+      .withIndex("by_profile", (q) => q.eq("profileId", profile._id))
+      .unique();
 
     const byOperation: Record<string, { correct: number; total: number }> = {};
     const byFact: Record<string, { correct: number; total: number; wrongAnswers: number[] }> = {};
@@ -103,6 +108,20 @@ export const overview = query({
       daily.push({ day, ...(byDay[day] ?? { total: 0, correct: 0 }) });
     }
 
+    // Days in a row with any practice, counting back from today — or from
+    // yesterday, so a streak is not shown as broken before today has had a
+    // chance. Bounded by the sample above, which is plenty for a child.
+    let streakDays = 0;
+    const DAY = 86_400_000;
+    const todayKey = new Date(Date.now()).toISOString().slice(0, 10);
+    let cursor = byDay[todayKey] ? Date.now() : Date.now() - DAY;
+    for (;;) {
+      const key = new Date(cursor).toISOString().slice(0, 10);
+      if (!byDay[key]) break;
+      streakDays++;
+      cursor -= DAY;
+    }
+
     return {
       profile: {
         id: profile._id,
@@ -112,7 +131,19 @@ export const overview = query({
         locale: profile.locale,
       },
       settings,
+      // What the child has to show for it, from the device's backup. Null
+      // until the device has sent one.
+      progress: progress
+        ? {
+            level: progress.level,
+            coins: progress.coins,
+            pets: progress.pets,
+            savedAt: progress.savedAt,
+          }
+        : null,
       stats: {
+        lastPlayedAt: recent[0]?.createdAt ?? null,
+        streakDays,
         sampled: recent.length,
         correct,
         accuracy: recent.length === 0 ? 0 : correct / recent.length,
@@ -183,6 +214,61 @@ export const tables = query({
       strength: row.strength,
       lastSeenAt: row.lastSeenAt,
     }));
+  },
+});
+
+const AVATARS = ["🦊", "🐼", "🦁", "🐸", "🦄", "🐙", "🐝", "🦖"];
+
+/** The child's name and buddy, as shown in the game and on this dashboard. */
+export const updateProfile = mutation({
+  args: { token: v.string(), name: v.optional(v.string()), avatarEmoji: v.optional(v.string()) },
+  handler: async (ctx, { token, name, avatarEmoji }) => {
+    const profile = await requireParent(ctx, token);
+    const patch: { name?: string; avatarEmoji?: string } = {};
+    if (name !== undefined) {
+      const trimmed = name.trim().slice(0, 24);
+      if (trimmed.length === 0) throw new ConvexError("Name is required");
+      patch.name = trimmed;
+    }
+    if (avatarEmoji !== undefined) {
+      if (!AVATARS.includes(avatarEmoji)) throw new ConvexError("Unknown buddy");
+      patch.avatarEmoji = avatarEmoji;
+    }
+    await ctx.db.patch(profile._id, patch);
+  },
+});
+
+/** For the PIN change, which runs in the Node runtime and cannot use requireParent itself. */
+export const pinForSession = internalQuery({
+  args: { token: v.string() },
+  handler: async (ctx, { token }) => {
+    const profile = await requireParent(ctx, token);
+    return { profileId: profile._id, pinHash: profile.pinHash, pinSalt: profile.pinSalt };
+  },
+});
+
+/**
+ * Stores a new PIN and signs out every other dashboard session: a PIN is
+ * changed because someone else might know the old one, and that someone may
+ * be signed in right now.
+ */
+export const setPin = internalMutation({
+  args: {
+    profileId: v.id("profiles"),
+    pinHash: v.string(),
+    pinSalt: v.string(),
+    keepToken: v.string(),
+  },
+  handler: async (ctx, { profileId, pinHash, pinSalt, keepToken }) => {
+    await ctx.db.patch(profileId, { pinHash, pinSalt });
+    const keep = sha256(keepToken);
+    const sessions = await ctx.db
+      .query("parentSessions")
+      .withIndex("by_profile", (q) => q.eq("profileId", profileId))
+      .collect();
+    for (const session of sessions) {
+      if (session.tokenHash !== keep) await ctx.db.delete(session._id);
+    }
   },
 });
 

@@ -29,7 +29,7 @@ function ParentApp() {
       />
     );
   }
-  return <Dashboard session={session} onLogout={() => void logout()} />;
+  return <Dashboard session={session} device={identity ?? null} onLogout={() => void logout()} />;
 }
 
 function NoBackend() {

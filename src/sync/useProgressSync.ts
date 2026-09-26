@@ -22,7 +22,7 @@ function toPet(pet: Pet): Pet {
   };
 }
 
-function toBackup(stable: Stable, level: number) {
+export function toBackup(stable: Stable, level: number) {
   return {
     coins: stable.coins,
     lastBonusDay: stable.lastBonusDay,

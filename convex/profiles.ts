@@ -1,5 +1,7 @@
 import { ConvexError, v } from "convex/values";
-import { internalMutation, internalQuery } from "./_generated/server";
+import { internalMutation, internalQuery, mutation } from "./_generated/server";
+import { checkDevice } from "./auth";
+import { sha256 } from "./sha256.js";
 
 const DEFAULTS = {
   ops: ["add", "mul"] as ("add" | "sub" | "mul" | "div")[],
@@ -64,5 +66,31 @@ export const addDevice = internalMutation({
   args: { profileId: v.id("profiles"), tokenHash: v.string() },
   handler: async (ctx, args) => {
     await ctx.db.insert("devices", { ...args, createdAt: Date.now() });
+  },
+});
+
+/**
+ * A device signing itself out: its token stops working here and now, rather
+ * than lingering valid on a tablet that has been handed on.
+ *
+ * A linked device's token is simply deleted. The device that made the profile
+ * holds the profile's own token, which cannot be deleted — so it is replaced
+ * with one nobody holds. Every other linked device keeps working either way.
+ */
+export const signOutDevice = mutation({
+  args: { profileId: v.id("profiles"), deviceToken: v.string() },
+  handler: async (ctx, { profileId, deviceToken }) => {
+    const profile = await checkDevice(ctx, profileId, deviceToken);
+    if (!profile) return;
+    const tokenHash = sha256(deviceToken);
+    if (profile.deviceTokenHash === tokenHash) {
+      await ctx.db.patch(profileId, { deviceTokenHash: `revoked:${crypto.randomUUID()}` });
+      return;
+    }
+    const linked = await ctx.db
+      .query("devices")
+      .withIndex("by_profile_token", (q) => q.eq("profileId", profileId).eq("tokenHash", tokenHash))
+      .unique();
+    if (linked) await ctx.db.delete(linked._id);
   },
 });

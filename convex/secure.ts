@@ -133,6 +133,30 @@ export const parentLogin = action({
 });
 
 /**
+ * A new PIN, from inside the dashboard. The current PIN is asked for again
+ * even though the parent is signed in: a dashboard left open on a shared
+ * laptop should not be enough to lock the parent out of their own child's
+ * profile.
+ */
+export const changePin = action({
+  args: { token: v.string(), currentPin: v.string(), newPin: v.string() },
+  handler: async (ctx, { token, currentPin, newPin }): Promise<void> => {
+    if (!/^\d{4,8}$/.test(newPin)) throw new ConvexError("PIN must be 4 to 8 digits");
+    const current = await ctx.runQuery(internal.parent.pinForSession, { token });
+    if (!safeEqual(current.pinHash, hashPin(currentPin, current.pinSalt))) {
+      throw new ConvexError("The current PIN is not right");
+    }
+    const pinSalt = randomBytes(16).toString("base64");
+    await ctx.runMutation(internal.parent.setPin, {
+      profileId: current.profileId,
+      pinHash: hashPin(newPin, pinSalt),
+      pinSalt,
+      keepToken: token,
+    });
+  },
+});
+
+/**
  * Puts an existing profile back on a device: the tablet whose site data was
  * cleared, or a second one. The same pairing code and PIN as the dashboard,
  * because this hands out a device token — enough to write to the child's

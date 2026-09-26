@@ -55,7 +55,7 @@ const SYMBOLS = [
 ];
 
 /** Decoration only: coloured glows and symbols drifting slowly up and down. */
-function Backdrop() {
+export function Backdrop() {
   const reduce = useReducedMotion();
   return (
     <div className="pointer-events-none absolute inset-0" aria-hidden>

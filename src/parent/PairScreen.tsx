@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, LineChart, Loader2, Lock } from "lucide-react";
 import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
+import { ghostActionClass, primaryActionClass } from "@/game/GameDialog";
+import { WelcomeCard, WelcomeShell, fieldClass, labelClass } from "@/game/WelcomeShell";
 import type { TranslationKey } from "@/i18n/translations";
 import { useI18n } from "@/i18n/useI18n";
 
@@ -32,26 +32,28 @@ export function PairScreen({ onSubmit, error, busy, knownCode }: PairScreenProps
   const ready = pairCode.length === 6 && pin.length >= 4 && !busy;
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-5 py-8">
-      <motion.form
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
+    <WelcomeShell>
+      <WelcomeCard
+        as="form"
         onSubmit={(event) => {
           event.preventDefault();
           if (ready) void onSubmit(pairCode, pin);
         }}
-        className="space-y-6 rounded-[--radius-xl] bg-card p-7 shadow-xl"
+        hero={<LineChart className="size-10 text-primary" aria-hidden />}
+        className="space-y-6"
       >
-        <div>
-          <h1 className="font-display text-2xl font-black">{t("parentDashboard")}</h1>
+        <div className="text-center">
+          <h1 className="font-display text-3xl font-black">{t("parentDashboard")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {knownCode ? t("onThisDevice") : t("pairBlurb")}
           </p>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="pair-code">{t("pairingCode")}</Label>
-          <Input
+          <label htmlFor="pair-code" className={labelClass}>
+            {t("pairingCode")}
+          </label>
+          <input
             id="pair-code"
             value={pairCode}
             onChange={(event) => {
@@ -66,42 +68,54 @@ export function PairScreen({ onSubmit, error, busy, knownCode }: PairScreenProps
             autoCapitalize="characters"
             spellCheck={false}
             placeholder="ABC234"
-            className="h-14 text-center font-display text-2xl tracking-[0.35em]"
+            className={cn(fieldClass, "text-center text-2xl tracking-[0.35em]")}
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="pin">{t("pin")}</Label>
-          <Input
+          <label htmlFor="pin" className={labelClass}>
+            {t("pin")}
+          </label>
+          <input
             id="pin"
             value={pin}
             onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 8))}
             type="password"
             inputMode="numeric"
             autoComplete="current-password"
-            className="h-14 text-center font-display text-2xl tracking-[0.4em]"
+            // On the child's own device the code is already there: straight to the PIN.
+            autoFocus={Boolean(knownCode)}
+            className={cn(fieldClass, "text-center text-2xl tracking-[0.4em]")}
           />
         </div>
 
         {error && (
-          <p role="alert" className="text-sm font-bold text-wrong">
+          <motion.p
+            role="alert"
+            key={error}
+            animate={{ x: [0, -8, 7, -4, 0] }}
+            transition={{ duration: 0.4 }}
+            className="rounded-lg bg-wrong/10 px-3 py-2 text-sm font-bold text-wrong"
+          >
             {t(error)}
-          </p>
+          </motion.p>
         )}
 
-        <Button type="submit" disabled={!ready} size="lg" className="w-full font-display text-lg">
-          {busy && <Loader2 className="size-4 animate-spin" aria-hidden />}
-          {t("signIn")}
-        </Button>
-
-        <Link
-          to="/"
-          className="flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="size-3.5" aria-hidden />
-          {t("backToGame")}
-        </Link>
-      </motion.form>
-    </main>
+        <div className="space-y-1">
+          <button
+            type="submit"
+            disabled={!ready}
+            className={cn(primaryActionClass, "disabled:pointer-events-none disabled:opacity-40")}
+          >
+            {busy ? <Loader2 className="size-5 animate-spin" aria-hidden /> : <Lock className="size-5" aria-hidden />}
+            {t("signIn")}
+          </button>
+          <Link to="/" className={cn(ghostActionClass, "text-sm")}>
+            <ArrowLeft className="size-4" aria-hidden />
+            {t("backToGame")}
+          </Link>
+        </div>
+      </WelcomeCard>
+    </WelcomeShell>
   );
 }
