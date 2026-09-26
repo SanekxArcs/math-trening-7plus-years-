@@ -136,6 +136,17 @@ export default defineSchema({
     updatedBy: v.union(v.literal("parent"), v.literal("device")),
   }).index("by_profile", ["profileId"]),
 
+  /**
+   * One row: how many admin sign-in attempts have been made in the current
+   * window, and until when sign-in is locked. Counted before the password is
+   * checked, so many guesses sent at once are all counted.
+   */
+  adminGuard: defineTable({
+    attempts: v.number(),
+    windowStart: v.number(),
+    lockedUntil: v.number(),
+  }),
+
   /** Admin page sessions, opened with the ADMIN_PASSWORD environment variable. */
   adminSessions: defineTable({
     tokenHash: v.string(),

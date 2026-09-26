@@ -135,3 +135,24 @@ describe("isLang", () => {
     }
   });
 });
+
+describe("plurals", () => {
+  it("picks each language's own form for the count", () => {
+    expect(translate("en", "coinsEarned", { coins: 1 })).toBe("+1 coin");
+    expect(translate("en", "coinsEarned", { coins: 5 })).toBe("+5 coins");
+
+    // Polish: one, few (2-4, 22-24…) and many (5-21, 25…).
+    expect(translate("pl", "coinsEarned", { coins: 1 })).toBe("+1 moneta");
+    expect(translate("pl", "coinsEarned", { coins: 3 })).toBe("+3 monety");
+    expect(translate("pl", "coinsEarned", { coins: 12 })).toBe("+12 monet");
+    expect(translate("pl", "coinsEarned", { coins: 22 })).toBe("+22 monety");
+
+    // Ukrainian: 21 is "one" again, 11 is "many".
+    expect(translate("uk", "coinsEarned", { coins: 21 })).toBe("+21 монета");
+    expect(translate("uk", "coinsEarned", { coins: 11 })).toBe("+11 монет");
+  });
+
+  it("leaves a plural alone when its number is not given", () => {
+    expect(translate("en", "coins", { other: 1 })).toContain("{coins|");
+  });
+});

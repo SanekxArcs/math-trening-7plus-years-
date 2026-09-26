@@ -17,7 +17,7 @@ export function Backdrop({ children }: { children: React.ReactNode }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-foreground/45 p-5 pt-16 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-scrim p-5 pt-16 backdrop-blur-sm"
     >
       {children}
     </motion.div>

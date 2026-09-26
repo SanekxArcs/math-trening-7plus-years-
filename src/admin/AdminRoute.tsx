@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { useMutation, useQuery } from "convex/react";
+import { useConvex, useMutation } from "convex/react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   Activity,
@@ -9,6 +9,7 @@ import {
   Loader2,
   Lock,
   LogOut,
+  RefreshCw,
   Search,
   ShieldCheck,
   Smartphone,
@@ -75,7 +76,7 @@ function AdminLogin({ onSession }: { onSession: (session: AdminSession) => void 
   const { t } = useI18n();
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<"adminWrong" | "adminNotSetUp" | "pairFailed" | null>(null);
+  const [error, setError] = useState<"adminWrong" | "adminNotSetUp" | "adminLocked" | "pairFailed" | null>(null);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -86,7 +87,15 @@ function AdminLogin({ onSession }: { onSession: (session: AdminSession) => void 
       onSession(await convex.action(api.secure.adminLogin, { password }));
     } catch (cause) {
       const message = String(cause);
-      setError(message.includes("ADMIN_NOT_SET_UP") ? "adminNotSetUp" : message.includes("ADMIN_WRONG") ? "adminWrong" : "pairFailed");
+      setError(
+        message.includes("ADMIN_NOT_SET_UP")
+          ? "adminNotSetUp"
+          : message.includes("ADMIN_LOCKED")
+            ? "adminLocked"
+            : message.includes("ADMIN_WRONG")
+              ? "adminWrong"
+              : "pairFailed",
+      );
       setBusy(false);
     }
   };
@@ -130,8 +139,38 @@ type UserRow = Overview["users"][number];
 
 function AdminDashboard({ session, onSignOut }: { session: AdminSession; onSignOut: () => void }) {
   const { t } = useI18n();
-  const data = useQuery(api.admin.overview, { token: session.token });
   const logout = useMutation(api.admin.logout);
+  const client = useConvex();
+
+  /**
+   * Loaded on demand and refreshed once a minute, not subscribed: a live
+   * query here would re-read thousands of rows every time any child anywhere
+   * answered a sum. `undefined` while loading, `null` once signed out.
+   */
+  const [data, setData] = useState<Overview | null | undefined>(undefined);
+  const [loadedAt, setLoadedAt] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      setData(
+        await client.query(api.admin.overview, {
+          token: session.token,
+          tzOffsetMinutes: new Date().getTimezoneOffset(),
+        }),
+      );
+      setLoadedAt(Date.now());
+    } catch {
+      /* offline: keep showing what was loaded last */
+    } finally {
+      setLoading(false);
+    }
+  }, [client, session.token]);
+  useEffect(() => {
+    void load();
+    const id = window.setInterval(() => void load(), 60_000);
+    return () => window.clearInterval(id);
+  }, [load]);
   const [deleting, setDeleting] = useState<UserRow | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -167,6 +206,18 @@ function AdminDashboard({ session, onSignOut }: { session: AdminSession; onSignO
               <span className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{t("adminTitle")}</span>
             </span>
           </div>
+          <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => void load()}
+            disabled={loading}
+            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-bold text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
+          >
+            <RefreshCw className={cn("size-4", loading && "animate-spin")} aria-hidden />
+            <span className="sr-only sm:not-sr-only">
+              {loadedAt === null ? t("adminRefresh") : t("adminUpdated", { when: timeAgo(t, loadedAt) })}
+            </span>
+          </button>
           <button
             type="button"
             onClick={signOut}
@@ -175,6 +226,7 @@ function AdminDashboard({ session, onSignOut }: { session: AdminSession; onSignO
             <LogOut className="size-4" aria-hidden />
             {t("signOut")}
           </button>
+          </div>
         </div>
       </header>
 
@@ -209,6 +261,7 @@ function AdminDashboard({ session, onSignOut }: { session: AdminSession; onSignO
               onDeleted={(name) => {
                 setDeleting(null);
                 setNotice(t("adminDeleted", { name }));
+                void load();
               }}
             />
           )}

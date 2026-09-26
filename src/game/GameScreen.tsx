@@ -50,6 +50,26 @@ import { updateStable, useLiveStable, useStable } from "./useStable";
 import type { GameSettings } from "@/engine";
 import type { SyncStatus } from "@/sync/useSync";
 
+const LOST_FROM = "math_master_lost_from";
+
+function readLostFrom(): number | null {
+  try {
+    const value = Number(localStorage.getItem(LOST_FROM));
+    return Number.isFinite(value) && value >= 1 ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeLostFrom(level: number | null): void {
+  try {
+    if (level === null) localStorage.removeItem(LOST_FROM);
+    else localStorage.setItem(LOST_FROM, String(level));
+  } catch {
+    /* private mode: the wording just falls back after a reload */
+  }
+}
+
 export interface GameScreenProps {
   settings: GameSettings;
   /** Where finished attempts go. The outbox in the real app, a spy in tests. */
@@ -158,8 +178,12 @@ export function GameScreen({
   /** The pet the nudges are about: whoever needs care, else whoever is on screen. */
   const needy = petNeedingCare(stable);
   const [reward, setReward] = useState<Reward | null>(null);
-  /** The level a lost game was played at, for the "back to level 1" message. */
-  const [lostFrom, setLostFrom] = useState<number | null>(null);
+  /**
+   * The level a lost game was played at, for the "back to level 1" message.
+   * Kept in storage too: by the time a lost board is reloaded the level has
+   * already been reset, so it could not be worked out again.
+   */
+  const [lostFrom, setLostFrom] = useState<number | null>(() => (state.lost ? readLostFrom() : null));
   /** Set when "finish for today" is what ended the session: the payout then puts the pets to bed too. */
   const bedtime = useRef(false);
   const wasFinished = useRef(state.phase === "finished");
@@ -170,6 +194,7 @@ export function GameScreen({
     if (!finished) {
       setReward(null);
       setLostFrom(null);
+      writeLostFrom(null);
       return;
     }
     // Lost: the level goes with it, at once — waiting for a button would let
@@ -178,6 +203,7 @@ export function GameScreen({
     // the questions themselves starts a new round.
     if (state.lost) {
       setLostFrom(level);
+      writeLostFrom(level);
       resetLevel();
     }
     const now = Date.now();
@@ -521,7 +547,7 @@ export function GameScreen({
                         {/* What the next level pays, so moving up has a visible prize. */}
                         <span
                           className="flex items-center gap-1 rounded-full bg-black/15 py-0.5 pl-0.5 pr-2 text-primary-foreground"
-                          aria-label={`${coinsForLevel(nextGoal, level + 1)} ${t("coins")}`}
+                          aria-label={`${coinsForLevel(nextGoal, level + 1)} ${t("coins", { coins: coinsForLevel(nextGoal, level + 1) })}`}
                         >
                           <CoinIcon className="size-4" />
                           <span aria-hidden>{coinsForLevel(nextGoal, level + 1)}</span>

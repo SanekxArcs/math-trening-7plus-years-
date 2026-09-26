@@ -8,6 +8,13 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Math Master</title>
+    <!-- Dark mode follows the device, set before first paint so a dark
+         tablet never flashes white. main.tsx keeps it in step afterwards. -->
+    <script>
+      if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+        document.documentElement.classList.add("dark");
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

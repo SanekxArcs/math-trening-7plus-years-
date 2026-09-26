@@ -117,7 +117,7 @@ function Scanner({ onCode, onClose }: { onCode: (code: string) => void; onClose:
         <h2 className="font-display text-2xl font-black">{t("scanQr")}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{t("scanQrHint")}</p>
 
-        <div className="relative mx-auto mt-5 aspect-square w-full max-w-64 overflow-hidden rounded-xl bg-foreground/90">
+        <div className="relative mx-auto mt-5 aspect-square w-full max-w-64 overflow-hidden rounded-xl bg-black/90">
           {problem ? (
             <div className="flex size-full flex-col items-center justify-center gap-3 p-5 text-background">
               <CameraOff className="size-10 opacity-80" aria-hidden />

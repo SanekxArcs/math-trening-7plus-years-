@@ -79,7 +79,9 @@ function toSettings(stored: OverviewData["settings"]): GameSettings {
  */
 export function Dashboard({ session, device, onLogout }: DashboardProps) {
   const { t } = useI18n();
-  const data = useQuery(api.parent.overview, { token: session.token });
+  // Fixed for the visit: a new offset each render would be a new subscription.
+  const [tzOffsetMinutes] = useState(() => new Date().getTimezoneOffset());
+  const data = useQuery(api.parent.overview, { token: session.token, tzOffsetMinutes });
   const [tab, setTab] = useState<Tab>("overview");
   const [signingOut, setSigningOut] = useState(false);
 
@@ -277,7 +279,7 @@ function ChildCard({
       </div>
       <div className="grid grid-cols-3 divide-x divide-border/60 border-t border-border/60 bg-card/60">
         <Fact icon={<Star className="size-4 text-primary" fill="currentColor" aria-hidden />} value={t("levelN", { level })} />
-        <Fact icon={<CoinIcon className="size-5" />} value={coins === null ? "—" : String(coins)} label={t("coins")} />
+        <Fact icon={<CoinIcon className="size-5" />} value={coins === null ? "—" : String(coins)} label={t("coins", { coins: coins ?? 0 })} />
         <Fact
           icon={<Flame className={cn("size-4", streakDays > 0 ? "text-combo" : "text-muted-foreground")} aria-hidden />}
           value={streakDays > 0 ? t("streakDays", { days: streakDays }) : "—"}

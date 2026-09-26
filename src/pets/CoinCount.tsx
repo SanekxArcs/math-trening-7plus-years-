@@ -27,7 +27,7 @@ export function CoinCount({ coins, className }: { coins: number; className?: str
         className,
       )}
       role="img"
-      aria-label={`${coins} ${t("coins")}`}
+      aria-label={`${coins} ${t("coins", { coins })}`}
     >
       <motion.span
         key={spin}

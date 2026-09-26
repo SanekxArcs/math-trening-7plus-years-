@@ -32,9 +32,23 @@ export const logout = mutation({
   },
 });
 
+/**
+ * Minutes to add to UTC for the viewer's local day — the browser's
+ * `getTimezoneOffset()`, sign flipped. Clamped, since it arrives from the client.
+ */
+function localShift(tzOffsetMinutes: number | undefined): number {
+  const minutes = Math.max(-14 * 60, Math.min(14 * 60, Math.round(tzOffsetMinutes ?? 0)));
+  return -minutes * 60_000;
+}
+
 export const overview = query({
-  args: { token: v.string() },
-  handler: async (ctx, { token }) => {
+  // The viewer's time zone, so "today" and the day buckets are their days:
+  // counted in UTC, a sum solved just after midnight in Warsaw or Kyiv landed
+  // on the day before.
+  args: { token: v.string(), tzOffsetMinutes: v.optional(v.number()) },
+  handler: async (ctx, { token, tzOffsetMinutes }) => {
+    const shift = localShift(tzOffsetMinutes);
+    const localDay = (at: number) => new Date(at + shift).toISOString().slice(0, 10);
     const profile = await requireParent(ctx, token);
 
     const settings = await ctx.db
@@ -66,10 +80,7 @@ export const overview = query({
       if (attempt.isCorrect) correct++;
       totalMs += attempt.ms;
 
-      // Local-date bucketing would need the parent's timezone; UTC days keep
-      // the query deterministic and cacheable, which matters more here than a
-      // late-evening session landing on the neighbouring day.
-      const day = new Date(attempt.createdAt).toISOString().slice(0, 10);
+      const day = localDay(attempt.createdAt);
       const bucket = (byDay[day] ??= { total: 0, correct: 0 });
       bucket.total++;
       if (attempt.isCorrect) bucket.correct++;
@@ -103,8 +114,7 @@ export const overview = query({
     const daily: { day: string; total: number; correct: number }[] = [];
     const today = new Date(Date.now());
     for (let back = 13; back >= 0; back--) {
-      const date = new Date(today.getTime() - back * 86_400_000);
-      const day = date.toISOString().slice(0, 10);
+      const day = localDay(today.getTime() - back * 86_400_000);
       daily.push({ day, ...(byDay[day] ?? { total: 0, correct: 0 }) });
     }
 
@@ -113,10 +123,10 @@ export const overview = query({
     // chance. Bounded by the sample above, which is plenty for a child.
     let streakDays = 0;
     const DAY = 86_400_000;
-    const todayKey = new Date(Date.now()).toISOString().slice(0, 10);
+    const todayKey = localDay(Date.now());
     let cursor = byDay[todayKey] ? Date.now() : Date.now() - DAY;
     for (;;) {
-      const key = new Date(cursor).toISOString().slice(0, 10);
+      const key = localDay(cursor);
       if (!byDay[key]) break;
       streakDays++;
       cursor -= DAY;

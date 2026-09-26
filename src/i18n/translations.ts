@@ -29,14 +29,14 @@ const en = {
   halfPoints: "0 pts",
   secondsShort: "{seconds}s",
   useHalfHalf: "Use 50:50 — removes half the wrong answers, but scores no points",
-  halfHalfReady: "50:50 ready in {seconds} seconds",
+  halfHalfReady: "50:50 ready in {seconds} {seconds|one:second|other:seconds}",
   answerN: "Answer {value}",
   deleteDigit: "Delete last digit",
   checkAnswer: "Check answer",
   parentDashboard: "Parent dashboard",
   offline: "offline",
   offlineTitle: "Offline — answers are saved on this device",
-  pendingTitle: "{count} answers waiting to sync",
+  pendingTitle: "{count} {count|one:answer|other:answers} waiting to sync",
   groupsOf: "{groups} groups of {perGroup}",
   nothingToCount: "Nothing to count — the answer is 0.",
   groupsOfNothing: "{groups} empty groups — nothing in any of them",
@@ -72,6 +72,9 @@ const en = {
   keepPlaying: "Keep playing",
   finishSession: "Finish for now",
   sessionOver: "Nice work!",
+  adminLocked: "Too many attempts. Sign-in is locked for 15 minutes.",
+  adminRefresh: "Refresh",
+  adminUpdated: "Updated {when}",
   // Admin page
   adminTitle: "Admin",
   adminSignInTitle: "Admin sign-in",
@@ -93,7 +96,7 @@ const en = {
   adminFeed: "Live activity",
   adminFeedEmpty: "No answers yet.",
   adminUserList: "All users",
-  adminUserCount: "{count} profiles, most recently active first",
+  adminUserCount: "{count} {count|one:profile|other:profiles}, most recently active first",
   adminSearch: "Search by name or code",
   adminNoUsers: "No users found.",
   adminColUser: "User",
@@ -242,7 +245,7 @@ const en = {
   signOutElsewhere: "To sign a device out, open the dashboard on that device.",
   signOutConfirmTitle: "Sign this device out?",
   signOutConfirm: "Yes, sign out",
-  signOutPending: "{count} answers are not backed up yet and will be lost. Go online first to keep them.",
+  signOutPending: "{count} {count|one:answer is|other:answers are} not backed up yet and will be lost. Go online first to keep them.",
   signOutOffline: "This device is offline, so anything not backed up yet will be lost.",
   signingOut: "Signing out…",
   lostTitle: "Oh no, game over!",
@@ -335,7 +338,7 @@ const en = {
   noPractice: "No practice",
   practisedDays: "practised {days} of {total} days",
   today: "Today",
-  questionsAndAccuracy: "{count} questions · {accuracy}% right",
+  questionsAndAccuracy: "{count} {count|one:question|other:questions} · {accuracy}% right",
   rightOf: "{correct} right of {total}",
 
   // History table
@@ -384,8 +387,8 @@ const en = {
   couldNotSave: "Could not save",
 
   // Horse
-  coins: "coins",
-  openStable: "Your pets — {coins} coins",
+  coins: "{coins|one:coin|other:coins}",
+  openStable: "Your pets — {coins} {coins|one:coin|other:coins}",
   visitHorse: "Visit your pets",
   nameYourHorse: "Adopt a horse!",
   nameYourHorseBlurb: "Win levels to earn coins, then spend them to feed, wash and look after your horse. Come back every day — a horse needs care!",
@@ -406,7 +409,7 @@ const en = {
   itemSponge: "Sponge",
   itemBath: "Shower",
   itemMedicine: "Medicine",
-  buyItem: "{item}, {price} coins",
+  buyItem: "{item}, {price} {price|one:coin|other:coins}",
   petHorse: "Pet",
   petAgainIn: "again in {minutes} min",
   moodHappy: "{name} is very happy!",
@@ -421,7 +424,7 @@ const en = {
   revive: "Bring {name} back",
   needMore: "{coins} more",
   itemFull: "Full",
-  coinsEarned: "+{coins} coins",
+  coinsEarned: "+{coins} {coins|one:coin|other:coins}",
   dailyBonus: "+{coins} first win today!",
   horseNeedsYou: "{name} needs you!",
   vacationTitle: "Holiday mode",
@@ -481,14 +484,14 @@ const pl: Record<TranslationKey, string> = {
   halfPoints: "0 pkt",
   secondsShort: "{seconds}s",
   useHalfHalf: "Użyj 50:50 — usuwa połowę złych odpowiedzi, ale bez punktów",
-  halfHalfReady: "50:50 gotowe za {seconds} sekund",
+  halfHalfReady: "50:50 gotowe za {seconds} {seconds|one:sekundę|few:sekundy|many:sekund|other:sekundy}",
   answerN: "Odpowiedź {value}",
   deleteDigit: "Usuń ostatnią cyfrę",
   checkAnswer: "Sprawdź odpowiedź",
   parentDashboard: "Panel rodzica",
   offline: "offline",
   offlineTitle: "Offline — odpowiedzi są zapisane na tym urządzeniu",
-  pendingTitle: "{count} odpowiedzi czeka na wysłanie",
+  pendingTitle: "{count} {count|one:odpowiedź czeka|few:odpowiedzi czekają|many:odpowiedzi czeka|other:odpowiedzi czeka} na wysłanie",
   groupsOf: "{groups} grup po {perGroup}",
   nothingToCount: "Nie ma czego liczyć — wynik to 0.",
   groupsOfNothing: "{groups} pustych grup — w żadnej nic nie ma",
@@ -523,6 +526,9 @@ const pl: Record<TranslationKey, string> = {
   keepPlaying: "Graj dalej",
   finishSession: "Zakończ na dziś",
   sessionOver: "Dobra robota!",
+  adminLocked: "Zbyt wiele prób. Logowanie jest zablokowane na 15 minut.",
+  adminRefresh: "Odśwież",
+  adminUpdated: "Zaktualizowano {when}",
   // Admin page
   adminTitle: "Administrator",
   adminSignInTitle: "Logowanie administratora",
@@ -544,7 +550,7 @@ const pl: Record<TranslationKey, string> = {
   adminFeed: "Aktywność na żywo",
   adminFeedEmpty: "Nie ma jeszcze odpowiedzi.",
   adminUserList: "Wszyscy użytkownicy",
-  adminUserCount: "{count} profili, od ostatnio aktywnych",
+  adminUserCount: "{count} {count|one:profil|few:profile|many:profili|other:profilu}, od ostatnio aktywnych",
   adminSearch: "Szukaj po imieniu lub kodzie",
   adminNoUsers: "Nie znaleziono użytkowników.",
   adminColUser: "Użytkownik",
@@ -630,7 +636,7 @@ const pl: Record<TranslationKey, string> = {
   levelN: "Poziom {level}",
   lastPlayed: "Ostatnio grał(a) {when}",
   neverPlayed: "Jeszcze nie grał(a)",
-  streakDays: "{days} dni z rzędu",
+  streakDays: "{days} {days|one:dzień|few:dni|many:dni|other:dnia} z rzędu",
   justNow: "przed chwilą",
   minutesAgo: "{count} min temu",
   hoursAgo: "{count} godz. temu",
@@ -693,7 +699,7 @@ const pl: Record<TranslationKey, string> = {
   signOutElsewhere: "Aby wylogować urządzenie, otwórz panel na tym urządzeniu.",
   signOutConfirmTitle: "Wylogować to urządzenie?",
   signOutConfirm: "Tak, wyloguj",
-  signOutPending: "{count} odpowiedzi nie ma jeszcze w kopii i zostaną utracone. Połącz się z internetem, żeby je zachować.",
+  signOutPending: "Odpowiedzi jeszcze niezapisane w kopii: {count}. Zostaną utracone — połącz się z internetem, żeby je zachować.",
   signOutOffline: "To urządzenie jest offline, więc wszystko, czego nie ma w kopii, zostanie utracone.",
   signingOut: "Wylogowywanie…",
   lostTitle: "Ojej, koniec gry!",
@@ -782,7 +788,7 @@ const pl: Record<TranslationKey, string> = {
   noPractice: "Bez ćwiczeń",
   practisedDays: "ćwiczenia w {days} z {total} dni",
   today: "Dziś",
-  questionsAndAccuracy: "{count} zadań · {accuracy}% dobrze",
+  questionsAndAccuracy: "{count} {count|one:zadanie|few:zadania|many:zadań|other:zadania} · {accuracy}% dobrze",
   rightOf: "{correct} dobrze z {total}",
 
   colQuestion: "Zadanie",
@@ -828,8 +834,8 @@ const pl: Record<TranslationKey, string> = {
   savedToDevice: "Zapisano — wysłano na urządzenie dziecka",
   couldNotSave: "Nie udało się zapisać",
   // Konik
-  coins: "monet",
-  openStable: "Twoje zwierzaki — {coins} monet",
+  coins: "{coins|one:moneta|few:monety|many:monet|other:monety}",
+  openStable: "Twoje zwierzaki — {coins} {coins|one:moneta|few:monety|many:monet|other:monety}",
   visitHorse: "Odwiedź zwierzaki",
   nameYourHorse: "Przygarnij konika!",
   nameYourHorseBlurb: "Wygrywaj poziomy, zbieraj monety i wydawaj je na jedzenie, mycie i opiekę nad konikiem. Wracaj codziennie — konik potrzebuje opieki!",
@@ -850,7 +856,7 @@ const pl: Record<TranslationKey, string> = {
   itemSponge: "Gąbka",
   itemBath: "Prysznic",
   itemMedicine: "Lekarstwo",
-  buyItem: "{item}, {price} monet",
+  buyItem: "{item}, {price} {price|one:moneta|few:monety|many:monet|other:monety}",
   petHorse: "Pogłaszcz",
   petAgainIn: "znowu za {minutes} min",
   moodHappy: "{name} skacze z radości!",
@@ -865,7 +871,7 @@ const pl: Record<TranslationKey, string> = {
   revive: "Przywróć: {name}",
   needMore: "brakuje {coins}",
   itemFull: "Pełno",
-  coinsEarned: "+{coins} monet",
+  coinsEarned: "+{coins} {coins|one:moneta|few:monety|many:monet|other:monety}",
   dailyBonus: "+{coins} za pierwszą wygraną dziś!",
   horseNeedsYou: "{name} cię potrzebuje!",
   vacationTitle: "Tryb wakacji",
@@ -923,14 +929,14 @@ const uk: Record<TranslationKey, string> = {
   halfPoints: "0 балів",
   secondsShort: "{seconds}с",
   useHalfHalf: "Використати 50:50 — прибирає половину неправильних відповідей, але без балів",
-  halfHalfReady: "50:50 буде готове через {seconds} секунд",
+  halfHalfReady: "50:50 буде готове через {seconds} {seconds|one:секунду|few:секунди|many:секунд|other:секунди}",
   answerN: "Відповідь {value}",
   deleteDigit: "Стерти останню цифру",
   checkAnswer: "Перевірити відповідь",
   parentDashboard: "Панель батьків",
   offline: "офлайн",
   offlineTitle: "Офлайн — відповіді збережені на цьому пристрої",
-  pendingTitle: "{count} відповідей чекають на відправку",
+  pendingTitle: "{count} {count|one:відповідь чекає|few:відповіді чекають|many:відповідей чекають|other:відповіді чекають} на відправку",
   groupsOf: "{groups} груп по {perGroup}",
   nothingToCount: "Нічого рахувати — відповідь 0.",
   groupsOfNothing: "{groups} порожніх груп — у жодній нічого немає",
@@ -965,6 +971,9 @@ const uk: Record<TranslationKey, string> = {
   keepPlaying: "Грати далі",
   finishSession: "Завершити на сьогодні",
   sessionOver: "Гарна робота!",
+  adminLocked: "Забагато спроб. Вхід заблоковано на 15 хвилин.",
+  adminRefresh: "Оновити",
+  adminUpdated: "Оновлено {when}",
   // Admin page
   adminTitle: "Адміністратор",
   adminSignInTitle: "Вхід адміністратора",
@@ -986,7 +995,7 @@ const uk: Record<TranslationKey, string> = {
   adminFeed: "Активність наживо",
   adminFeedEmpty: "Відповідей ще немає.",
   adminUserList: "Усі користувачі",
-  adminUserCount: "{count} профілів, від нещодавно активних",
+  adminUserCount: "{count} {count|one:профіль|few:профілі|many:профілів|other:профілю}, від нещодавно активних",
   adminSearch: "Пошук за ім'ям або кодом",
   adminNoUsers: "Користувачів не знайдено.",
   adminColUser: "Користувач",
@@ -1072,7 +1081,7 @@ const uk: Record<TranslationKey, string> = {
   levelN: "Рівень {level}",
   lastPlayed: "Востаннє грав(ла) {when}",
   neverPlayed: "Ще не грав(ла)",
-  streakDays: "{days} дн. поспіль",
+  streakDays: "{days} {days|one:день|few:дні|many:днів|other:дня} поспіль",
   justNow: "щойно",
   minutesAgo: "{count} хв тому",
   hoursAgo: "{count} год тому",
@@ -1135,7 +1144,7 @@ const uk: Record<TranslationKey, string> = {
   signOutElsewhere: "Щоб вийти на пристрої, відкрийте панель саме на ньому.",
   signOutConfirmTitle: "Вийти на цьому пристрої?",
   signOutConfirm: "Так, вийти",
-  signOutPending: "{count} відповідей ще не збережено в копії, і вони зникнуть. Під'єднайтеся до інтернету, щоб їх зберегти.",
+  signOutPending: "Відповідей, ще не збережених у копії: {count}. Вони зникнуть — під'єднайтеся до інтернету, щоб їх зберегти.",
   signOutOffline: "Пристрій офлайн, тож усе, чого немає в копії, буде втрачено.",
   signingOut: "Вихід…",
   lostTitle: "Ой, гру закінчено!",
@@ -1224,7 +1233,7 @@ const uk: Record<TranslationKey, string> = {
   noPractice: "Без занять",
   practisedDays: "заняття {days} з {total} днів",
   today: "Сьогодні",
-  questionsAndAccuracy: "{count} завдань · {accuracy}% правильно",
+  questionsAndAccuracy: "{count} {count|one:завдання|few:завдання|many:завдань|other:завдання} · {accuracy}% правильно",
   rightOf: "{correct} правильно з {total}",
 
   colQuestion: "Завдання",
@@ -1270,8 +1279,8 @@ const uk: Record<TranslationKey, string> = {
   savedToDevice: "Збережено — надіслано на пристрій дитини",
   couldNotSave: "Не вдалося зберегти",
   // Коник
-  coins: "монет",
-  openStable: "Твої тваринки — {coins} монет",
+  coins: "{coins|one:монета|few:монети|many:монет|other:монети}",
+  openStable: "Твої тваринки — {coins} {coins|one:монета|few:монети|many:монет|other:монети}",
   visitHorse: "Відвідай тваринок",
   nameYourHorse: "Візьми коника!",
   nameYourHorseBlurb: "Вигравай рівні, збирай монети й витрачай їх на їжу, миття та догляд за коником. Повертайся щодня — коник потребує турботи!",
@@ -1292,7 +1301,7 @@ const uk: Record<TranslationKey, string> = {
   itemSponge: "Губка",
   itemBath: "Душ",
   itemMedicine: "Ліки",
-  buyItem: "{item}, {price} монет",
+  buyItem: "{item}, {price} {price|one:монета|few:монети|many:монет|other:монети}",
   petHorse: "Погладити",
   petAgainIn: "знову за {minutes} хв",
   moodHappy: "{name} стрибає від радості!",
@@ -1307,7 +1316,7 @@ const uk: Record<TranslationKey, string> = {
   revive: "Повернути: {name}",
   needMore: "ще {coins}",
   itemFull: "Досить",
-  coinsEarned: "+{coins} монет",
+  coinsEarned: "+{coins} {coins|one:монета|few:монети|many:монет|other:монети}",
   dailyBonus: "+{coins} за першу перемогу сьогодні!",
   horseNeedsYou: "{name} чекає на тебе!",
   vacationTitle: "Режим канікул",
@@ -1358,6 +1367,36 @@ export function isLang(value: unknown): value is Lang {
   return typeof value === "string" && (LANGS as readonly string[]).includes(value);
 }
 
+/** One set of plural rules per language, made once. */
+const pluralRules = new Map<Lang, Intl.PluralRules>();
+function pluralOf(lang: Lang, count: number): Intl.LDMLPluralRule {
+  let rules = pluralRules.get(lang);
+  if (!rules) {
+    rules = new Intl.PluralRules(lang);
+    pluralRules.set(lang, rules);
+  }
+  return rules.select(count);
+}
+
+/**
+ * `{count|one:coin|other:coins}` picks the form for the number in `count`,
+ * by the language's own rules — Polish and Ukrainian have one/few/many, so
+ * "1 moneta, 2 monety, 5 monet" all come out right. `other` is the fallback.
+ * Kept apart from `{name}` placeholders so a plural never looks like one.
+ */
+function applyPlurals(lang: Lang, template: string, vars: Record<string, string | number>): string {
+  return template.replace(/\{(\w+)\|([^{}]+)\}/g, (whole, name: string, forms: string) => {
+    if (!(name in vars)) return whole;
+    const byCategory = new Map(
+      forms.split("|").map((form) => {
+        const colon = form.indexOf(":");
+        return [form.slice(0, colon), form.slice(colon + 1)] as const;
+      }),
+    );
+    return byCategory.get(pluralOf(lang, Number(vars[name]))) ?? byCategory.get("other") ?? whole;
+  });
+}
+
 export function translate(
   lang: Lang,
   key: TranslationKey,
@@ -1365,7 +1404,7 @@ export function translate(
 ): string {
   const template = translations[lang][key];
   if (!vars) return template;
-  return template.replace(/\{(\w+)\}/g, (whole, name: string) =>
+  return applyPlurals(lang, template, vars).replace(/\{(\w+)\}/g, (whole, name: string) =>
     // An unknown placeholder is left as-is rather than blanked, so a typo shows
     // up as "{count}" on screen instead of a silently missing number.
     name in vars ? String(vars[name]) : whole,

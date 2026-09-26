@@ -49,7 +49,51 @@ export const logout = mutation({
   },
 });
 
-const dayKey = (at: number) => new Date(at).toISOString().slice(0, 10);
+/** Sign-in attempts allowed per window, and how long a lock lasts. */
+const LOGIN_ATTEMPTS = 10;
+const LOGIN_WINDOW_MS = 15 * 60_000;
+
+/**
+ * Counts an admin sign-in attempt and says whether it may go ahead. A
+ * mutation, so concurrent attempts are serialised and every one is counted:
+ * a burst of parallel guesses cannot slip past the limit together.
+ */
+export const beginLogin = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const guard = await ctx.db.query("adminGuard").first();
+    if (!guard) {
+      await ctx.db.insert("adminGuard", { attempts: 1, windowStart: now, lockedUntil: 0 });
+      return { locked: false };
+    }
+    if (guard.lockedUntil > now) return { locked: true };
+    const fresh = now - guard.windowStart > LOGIN_WINDOW_MS;
+    const attempts = fresh ? 1 : guard.attempts + 1;
+    const lock = attempts > LOGIN_ATTEMPTS;
+    await ctx.db.patch(guard._id, {
+      attempts: lock ? 0 : attempts,
+      windowStart: fresh || lock ? now : guard.windowStart,
+      lockedUntil: lock ? now + LOGIN_WINDOW_MS : 0,
+    });
+    return { locked: lock };
+  },
+});
+
+/** A right password clears the count, so the owner is never locked out by their own typos. */
+export const loginSucceeded = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const guard = await ctx.db.query("adminGuard").first();
+    if (guard) await ctx.db.patch(guard._id, { attempts: 0, windowStart: Date.now(), lockedUntil: 0 });
+  },
+});
+
+/** Minutes to add to UTC for the viewer's local day; see parent.ts. */
+function localShift(tzOffsetMinutes: number | undefined): number {
+  const minutes = Math.max(-14 * 60, Math.min(14 * 60, Math.round(tzOffsetMinutes ?? 0)));
+  return -minutes * 60_000;
+}
 
 /**
  * Everything the admin page shows, in one read: headline numbers, a daily
@@ -59,8 +103,10 @@ const dayKey = (at: number) => new Date(at).toISOString().slice(0, 10);
  * the page keeps working however long the app has been running.
  */
 export const overview = query({
-  args: { token: v.string() },
-  handler: async (ctx, { token }) => {
+  args: { token: v.string(), tzOffsetMinutes: v.optional(v.number()) },
+  handler: async (ctx, { token, tzOffsetMinutes }) => {
+    const shift = localShift(tzOffsetMinutes);
+    const dayKey = (at: number) => new Date(at + shift).toISOString().slice(0, 10);
     // Null rather than a throw: a subscribed query that throws takes the page
     // down, where a session that ran out should just mean "sign in again".
     if (!(await isAdmin(ctx, token))) return null;

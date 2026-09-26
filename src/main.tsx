@@ -10,6 +10,12 @@ import { I18nProvider } from "./i18n/useI18n.tsx";
 import { ErrorBoundary } from "./ErrorBoundary.tsx";
 import "./index.css";
 
+// Follow the device's light/dark setting live, as it changes at dusk.
+const darkQuery = window.matchMedia?.("(prefers-color-scheme: dark)");
+const applyScheme = () => document.documentElement.classList.toggle("dark", Boolean(darkQuery?.matches));
+applyScheme();
+darkQuery?.addEventListener?.("change", applyScheme);
+
 const root = document.getElementById("root");
 if (!root) throw new Error("Root element #root is missing from index.html");
 

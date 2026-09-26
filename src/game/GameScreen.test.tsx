@@ -424,6 +424,33 @@ describe("GameScreen", () => {
     expect(within(document.querySelector("header")!).getByText("Lv 1")).toBeInTheDocument();
   });
 
+  it("still says \"back to level 1\" when a lost game is reloaded", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("math_master_level", "2");
+    const options = { difficulty: "medium" as const, timerEnabled: false, goalEnabled: true, goalTarget: 20 };
+    const first = renderGame(options);
+
+    // Two misses lose level 2 (see the test above).
+    const miss = async () => {
+      const answer = solveVisibleQuestion();
+      await user.click(optionButtons().find((b) => Number(b.textContent) !== answer)!);
+    };
+    await miss();
+    const before = optionButtons().map((b) => b.getAttribute("aria-label")).join();
+    await waitFor(
+      () => expect(optionButtons().map((b) => b.getAttribute("aria-label")).join()).not.toBe(before),
+      { timeout: 4000 },
+    );
+    await miss();
+    await screen.findByText("Oh no, game over!");
+
+    // The level is already back at 1, so only the stored note can tell.
+    first.unmount();
+    renderGame(options);
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("button", { name: "Start again from level 1" })).toBeInTheDocument();
+  });
+
   it("does not move a child up for stopping early", async () => {
     const user = userEvent.setup();
     renderGame({ timerEnabled: false, goalEnabled: true, goalTarget: 500 });
@@ -445,7 +472,7 @@ describe("GameScreen", () => {
 
     const dialog = await screen.findByRole("dialog");
     // One coin for a goal of 5, plus the first win of the day.
-    expect(within(dialog).getByText(/\+1 coins/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/\+1 coin\b/)).toBeInTheDocument();
     expect(within(dialog).getByText("+5 first win today!")).toBeInTheDocument();
     expect(coins()).toBe(16);
 
