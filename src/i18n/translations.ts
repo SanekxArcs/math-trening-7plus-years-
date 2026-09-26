@@ -72,6 +72,21 @@ const en = {
   keepPlaying: "Keep playing",
   finishSession: "Finish for now",
   sessionOver: "Nice work!",
+  // Pairing by QR code
+  scanQr: "Scan QR code",
+  scanQrHint: "Point the camera at the QR code on the other device.",
+  cameraDenied: "Camera access was refused. Allow it in the browser settings, or type the code.",
+  cameraUnavailable: "No camera available here. Type the code instead.",
+  scanNotACode: "That QR code is not a Math Master pairing code.",
+  typeCodeInstead: "Type the code instead",
+  qrHint: "Scan it with a phone camera to open the app with the code filled in.",
+  pairLandingTitle: "Pairing code",
+  pairLandingBlurb: "What would you like to do on this device?",
+  openDashboard: "Open the parent dashboard",
+  openDashboardHint: "See progress and change settings. You will need the PIN.",
+  playHere: "Play on this device",
+  playHereHint: "Bring the child's profile, pets and coins here. You will need the PIN.",
+  alreadyLinked: "This device already has a child's profile, so it can only open the dashboard.",
   // Parent dashboard (rework)
   forParents: "for parents",
   tabOverview: "Overview",
@@ -184,7 +199,7 @@ const en = {
   copyCode: "Copy code",
   copied: "Copied",
   pairCodeFindAgain:
-    "You can find it again on this device: tap the settings icon in the game.",
+    "You can find it again on this device: tap the key icon in the corner of the game.",
   gotIt: "Got it",
   onThisDevice: "This device's code is filled in for you.",
 
@@ -423,6 +438,21 @@ const pl: Record<TranslationKey, string> = {
   keepPlaying: "Graj dalej",
   finishSession: "Zakończ na dziś",
   sessionOver: "Dobra robota!",
+  // Pairing by QR code
+  scanQr: "Zeskanuj kod QR",
+  scanQrHint: "Skieruj aparat na kod QR na drugim urządzeniu.",
+  cameraDenied: "Odmówiono dostępu do aparatu. Zezwól na niego w ustawieniach przeglądarki albo wpisz kod.",
+  cameraUnavailable: "Brak dostępnego aparatu. Wpisz kod ręcznie.",
+  scanNotACode: "To nie jest kod parowania Math Master.",
+  typeCodeInstead: "Wpiszę kod ręcznie",
+  qrHint: "Zeskanuj go aparatem telefonu, by otworzyć aplikację z wpisanym kodem.",
+  pairLandingTitle: "Kod parowania",
+  pairLandingBlurb: "Co chcesz zrobić na tym urządzeniu?",
+  openDashboard: "Otwórz panel rodzica",
+  openDashboardHint: "Zobacz postępy i zmień ustawienia. Potrzebny będzie PIN.",
+  playHere: "Graj na tym urządzeniu",
+  playHereHint: "Przenieś tu profil dziecka, zwierzaki i monety. Potrzebny będzie PIN.",
+  alreadyLinked: "To urządzenie ma już profil dziecka, więc może tylko otworzyć panel.",
   // Parent dashboard (rework)
   forParents: "dla rodziców",
   tabOverview: "Przegląd",
@@ -534,7 +564,7 @@ const pl: Record<TranslationKey, string> = {
   copyCode: "Kopiuj kod",
   copied: "Skopiowano",
   pairCodeFindAgain:
-    "Znajdziesz go ponownie na tym urządzeniu: dotknij ikony ustawień w grze.",
+    "Znajdziesz go ponownie na tym urządzeniu: dotknij ikony klucza w rogu gry.",
   gotIt: "Rozumiem",
   onThisDevice: "Kod tego urządzenia jest już wpisany.",
 
@@ -765,6 +795,21 @@ const uk: Record<TranslationKey, string> = {
   keepPlaying: "Грати далі",
   finishSession: "Завершити на сьогодні",
   sessionOver: "Гарна робота!",
+  // Pairing by QR code
+  scanQr: "Сканувати QR-код",
+  scanQrHint: "Наведіть камеру на QR-код на іншому пристрої.",
+  cameraDenied: "Доступ до камери заборонено. Дозвольте його в налаштуваннях браузера або введіть код.",
+  cameraUnavailable: "Камера недоступна. Введіть код вручну.",
+  scanNotACode: "Це не код підключення Math Master.",
+  typeCodeInstead: "Ввести код вручну",
+  qrHint: "Відскануйте камерою телефона, щоб відкрити застосунок із уже введеним кодом.",
+  pairLandingTitle: "Код підключення",
+  pairLandingBlurb: "Що ви хочете зробити на цьому пристрої?",
+  openDashboard: "Відкрити панель батьків",
+  openDashboardHint: "Переглянути успіхи й змінити налаштування. Знадобиться PIN.",
+  playHere: "Грати на цьому пристрої",
+  playHereHint: "Перенести сюди профіль дитини, тваринок і монети. Знадобиться PIN.",
+  alreadyLinked: "На цьому пристрої вже є профіль дитини, тож тут можна лише відкрити панель.",
   // Parent dashboard (rework)
   forParents: "для батьків",
   tabOverview: "Огляд",
@@ -876,7 +921,7 @@ const uk: Record<TranslationKey, string> = {
   copyCode: "Копіювати код",
   copied: "Скопійовано",
   pairCodeFindAgain:
-    "Знайти його знову можна на цьому пристрої: торкніться значка налаштувань у грі.",
+    "Знайти його знову можна на цьому пристрої: торкніться значка ключа в куті гри.",
   gotIt: "Зрозуміло",
   onThisDevice: "Код цього пристрою вже заповнено.",
 

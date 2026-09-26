@@ -4,13 +4,14 @@ import { Check, Copy, KeyRound } from "lucide-react";
 import { useI18n } from "@/i18n/useI18n";
 import { cn } from "@/lib/utils";
 import { dockIconClass } from "./BottomBar";
+import { QrCode } from "@/pair/QrCode";
 
 /**
  * The pairing code, always reachable from the game.
  *
  * Collapsed to a key icon in the bottom bar so it is not something for a child
- * to fiddle with mid-question. Tapping pops the code up above the bar, and
- * tapping again copies it.
+ * to fiddle with mid-question. Tapping pops the code up above the bar with a
+ * QR code for a parent's phone camera, and tapping again copies it.
  */
 export function PairCodeBadge({ pairCode }: { pairCode: string }) {
   const { t } = useI18n();
@@ -58,14 +59,18 @@ export function PairCodeBadge({ pairCode }: { pairCode: string }) {
 
       <AnimatePresence>
         {open && (
-          <motion.span
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 6 }}
-            className="absolute bottom-full left-0 mb-4 whitespace-nowrap rounded-full border border-border bg-card px-4 py-2 font-display text-sm font-black tracking-[0.2em] text-foreground shadow-lg"
+          // Pops up above the key, anchored to the dock's right edge: the code
+          // to read out, and a QR code for a parent's phone camera.
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.9 }}
+            transition={{ type: "spring", stiffness: 420, damping: 26 }}
+            className="absolute bottom-full right-0 mb-4 flex w-44 origin-bottom-right flex-col items-center gap-2 rounded-xl border border-border/70 bg-card/95 p-3 shadow-xl backdrop-blur-md"
           >
-            {pairCode}
-          </motion.span>
+            <QrCode code={pairCode} className="w-full" />
+            <span className="font-display text-lg font-black tracking-[0.2em] text-foreground">{pairCode}</span>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

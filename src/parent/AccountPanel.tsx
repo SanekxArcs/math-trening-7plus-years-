@@ -13,6 +13,7 @@ import { pendingCount } from "@/sync/outbox";
 import { signOutDevice } from "@/sync/signOut";
 import type { DeviceIdentity } from "@/sync/db";
 import { Panel, PanelTitle } from "./ui";
+import { QrCode } from "@/pair/QrCode";
 
 const AVATARS = ["🦊", "🐼", "🦁", "🐸", "🦄", "🐙", "🐝", "🦖"];
 
@@ -125,7 +126,9 @@ function PairingSection({ pairCode }: { pairCode: string }) {
   return (
     <Panel delay={0.04}>
       <PanelTitle icon={KeyRound} title={t("pairingCode")} hint={t("pairingCodeHint")} hue="var(--option-1)" />
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-4">
+        <QrCode code={pairCode} className="size-32 shrink-0" />
+        <div className="space-y-2">
         <p className="flex gap-1" role="img" aria-label={pairCode.split("").join(" ")}>
           {pairCode.split("").map((char, index) => (
             <span
@@ -141,6 +144,8 @@ function PairingSection({ pairCode }: { pairCode: string }) {
           {copied ? <Check className="size-4" strokeWidth={3} aria-hidden /> : <Copy className="size-4" aria-hidden />}
           {copied ? t("copied") : t("copyCode")}
         </button>
+        <p className="max-w-60 text-xs text-muted-foreground">{t("qrHint")}</p>
+        </div>
       </div>
     </Panel>
   );

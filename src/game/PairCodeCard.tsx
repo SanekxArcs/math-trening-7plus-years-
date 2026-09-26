@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/useI18n";
 import { primaryActionClass, secondaryActionClass } from "./GameDialog";
 import { WelcomeCard, WelcomeShell } from "./WelcomeShell";
+import { QrCode } from "@/pair/QrCode";
 
 interface PairCodeCardProps {
   pairCode: string;
@@ -63,6 +64,12 @@ export function PairCodeCard({ pairCode, name, onDone }: PairCodeCardProps) {
             </motion.span>
           ))}
         </p>
+
+        {/* The quickest way onto the parent's phone: point its camera here. */}
+        <div className="flex items-center gap-4 rounded-lg bg-muted/40 p-3 text-left">
+          <QrCode code={pairCode} className="size-28 shrink-0" />
+          <p className="text-sm text-muted-foreground">{t("qrHint")}</p>
+        </div>
 
         <button type="button" onClick={copy} className={cn(secondaryActionClass, copied && "text-correct")}>
           {copied ? <Check className="size-4" strokeWidth={3} aria-hidden /> : <Copy className="size-4" aria-hidden />}

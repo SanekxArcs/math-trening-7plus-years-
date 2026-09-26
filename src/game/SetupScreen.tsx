@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { motion, type MotionStyle } from "motion/react";
 import { Check, KeyRound, LineChart, Loader2, Lock, Play, RotateCcw } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import { parsePairCode } from "@/pair/pairLink";
+import { ScanButton } from "@/pair/QrScanner";
 import { cn } from "@/lib/utils";
 import { LANGS, LANG_LABELS } from "@/i18n/translations";
 import { useI18n } from "@/i18n/useI18n";
@@ -59,7 +61,10 @@ function LanguagePicker() {
  */
 export function SetupScreen({ onCreate, onRestore }: SetupScreenProps) {
   const { t, lang } = useI18n();
-  const [restoring, setRestoring] = useState(false);
+  // "Play on this device" from a scanned QR code lands here with the code.
+  const [params] = useSearchParams();
+  const linkedCode = parsePairCode(params.get("restore") ?? "");
+  const [restoring, setRestoring] = useState(linkedCode !== null);
   const [name, setName] = useState("");
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
@@ -85,7 +90,9 @@ export function SetupScreen({ onCreate, onRestore }: SetupScreenProps) {
   };
 
   if (restoring && onRestore) {
-    return <RestoreForm onRestore={onRestore} onCancel={() => setRestoring(false)} />;
+    return (
+      <RestoreForm onRestore={onRestore} initialCode={linkedCode} onCancel={() => setRestoring(false)} />
+    );
   }
 
   return (
@@ -234,13 +241,15 @@ export function SetupScreen({ onCreate, onRestore }: SetupScreenProps) {
 
 function RestoreForm({
   onRestore,
+  initialCode,
   onCancel,
 }: {
   onRestore: (pairCode: string, pin: string) => Promise<unknown>;
+  initialCode: string | null;
   onCancel: () => void;
 }) {
   const { t } = useI18n();
-  const [pairCode, setPairCode] = useState("");
+  const [pairCode, setPairCode] = useState(initialCode ?? "");
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -291,6 +300,7 @@ function RestoreForm({
             placeholder="ABC234"
             className={cn(fieldClass, "text-center text-2xl tracking-[0.35em]")}
           />
+          <ScanButton onCode={setPairCode} />
         </div>
 
         <div className="space-y-2">
@@ -304,6 +314,7 @@ function RestoreForm({
             type="password"
             inputMode="numeric"
             autoComplete="current-password"
+            autoFocus={initialCode !== null}
             className={cn(fieldClass, "text-center tracking-[0.4em]")}
           />
         </div>

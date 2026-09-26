@@ -2,6 +2,7 @@ import { Suspense, lazy } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { PlayRoute } from "@/game/PlayRoute";
+import { PairLanding } from "@/pair/PairLanding";
 
 /**
  * The dashboard is loaded on demand, and deliberately so.
@@ -23,6 +24,8 @@ export default function App() {
       {/* Eager, unlike the dashboard: the child opens it every day. */}
       <Route path="/pets" element={<PlayRoute view="pets" />} />
       <Route path="/horse" element={<Navigate to="/pets" replace />} />
+      {/* Where a scanned pairing QR code opens. */}
+      <Route path="/pair" element={<PairLanding />} />
       <Route
         path="/parent/*"
         element={

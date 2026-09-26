@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { ArrowLeft, LineChart, Loader2, Lock } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import { parsePairCode } from "@/pair/pairLink";
+import { ScanButton } from "@/pair/QrScanner";
 import { cn } from "@/lib/utils";
 import { ghostActionClass, primaryActionClass } from "@/game/GameDialog";
 import { WelcomeCard, WelcomeShell, fieldClass, labelClass } from "@/game/WelcomeShell";
@@ -18,9 +20,12 @@ interface PairScreenProps {
 
 export function PairScreen({ onSubmit, error, busy, knownCode }: PairScreenProps) {
   const { t } = useI18n();
-  const [pairCode, setPairCode] = useState(knownCode ?? "");
+  // Arriving from a scanned QR code: its code wins over this device's own.
+  const [params] = useSearchParams();
+  const fromLink = parsePairCode(params.get("code") ?? "");
+  const [pairCode, setPairCode] = useState(fromLink ?? knownCode ?? "");
   const [pin, setPin] = useState("");
-  const [edited, setEdited] = useState(false);
+  const [edited, setEdited] = useState(fromLink !== null);
 
   // `knownCode` is read out of IndexedDB, so it arrives after the first render —
   // a `useState` initial value would capture the empty string and never update.
@@ -70,6 +75,12 @@ export function PairScreen({ onSubmit, error, busy, knownCode }: PairScreenProps
             placeholder="ABC234"
             className={cn(fieldClass, "text-center text-2xl tracking-[0.35em]")}
           />
+          <ScanButton
+            onCode={(code) => {
+              setEdited(true);
+              setPairCode(code);
+            }}
+          />
         </div>
 
         <div className="space-y-2">
@@ -84,7 +95,7 @@ export function PairScreen({ onSubmit, error, busy, knownCode }: PairScreenProps
             inputMode="numeric"
             autoComplete="current-password"
             // On the child's own device the code is already there: straight to the PIN.
-            autoFocus={Boolean(knownCode)}
+            autoFocus={Boolean(knownCode || fromLink)}
             className={cn(fieldClass, "text-center text-2xl tracking-[0.4em]")}
           />
         </div>
